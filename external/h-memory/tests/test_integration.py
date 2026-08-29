@@ -23,11 +23,8 @@ async def test_write_turn_builder_flow(unique_pod_agent: tuple[str, str], redis_
         hot_keep_count=10,
     )
 
-    gen = h_memory_write_turn(config)
-    fn_info = await anext(gen)
-
-    try:
-        invoke_fn = fn_info.fn
+    async with h_memory_write_turn(config) as fn_info:
+        invoke_fn = getattr(fn_info, "single_fn", getattr(fn_info, "fn", None))
 
         # Valid turn write
         turn_inp = WriteTurnInput(
@@ -49,12 +46,6 @@ async def test_write_turn_builder_flow(unique_pod_agent: tuple[str, str], redis_
         with pytest.raises(ValueError, match="out of range"):
             await invoke_fn(invalid_ttl_inp)
 
-    finally:
-        try:
-            await anext(gen)
-        except StopAsyncIteration:
-            pass
-
 
 @pytest.mark.asyncio
 async def test_delete_chat_builder_flow(unique_pod_agent: tuple[str, str], redis_client: aioredis.Redis):
@@ -63,28 +54,16 @@ async def test_delete_chat_builder_flow(unique_pod_agent: tuple[str, str], redis
 
     # Write a turn first using write_turn builder
     w_config = HMemoryWriteTurnConfig(pod=pod, agent=agent, ttl_seconds_max=600)
-    w_gen = h_memory_write_turn(w_config)
-    w_info = await anext(w_gen)
-    try:
-        await w_info.fn(WriteTurnInput(chat_id=chat_id, role="user", content="msg", ttl_seconds=300))
-    finally:
-        try:
-            await anext(w_gen)
-        except StopAsyncIteration:
-            pass
+    async with h_memory_write_turn(w_config) as w_info:
+        w_fn = getattr(w_info, "single_fn", getattr(w_info, "fn", None))
+        await w_fn(WriteTurnInput(chat_id=chat_id, role="user", content="msg", ttl_seconds=300))
 
     # Now use delete_chat builder
     del_config = HMemoryDeleteChatConfig(pod=pod, agent=agent)
-    del_gen = h_memory_delete_chat(del_config)
-    del_info = await anext(del_gen)
-    try:
-        deleted = await del_info.fn(DeleteChatInput(chat_id=chat_id))
+    async with h_memory_delete_chat(del_config) as del_info:
+        del_fn = getattr(del_info, "single_fn", getattr(del_info, "fn", None))
+        deleted = await del_fn(DeleteChatInput(chat_id=chat_id))
         assert deleted == 2  # 1 data key + 1 index key
-    finally:
-        try:
-            await anext(del_gen)
-        except StopAsyncIteration:
-            pass
 
 
 @pytest.mark.asyncio
@@ -94,12 +73,10 @@ async def test_read_contract_simulation(unique_pod_agent: tuple[str, str], redis
     chat_id = "chat-read-sim"
 
     w_config = HMemoryWriteTurnConfig(pod=pod, agent=agent, ttl_seconds_max=600)
-    w_gen = h_memory_write_turn(w_config)
-    w_info = await anext(w_gen)
-
-    try:
+    async with h_memory_write_turn(w_config) as w_info:
+        w_fn = getattr(w_info, "single_fn", getattr(w_info, "fn", None))
         for i in range(3):
-            await w_info.fn(WriteTurnInput(
+            await w_fn(WriteTurnInput(
                 chat_id=chat_id,
                 role="user" if i % 2 == 0 else "assistant",
                 content=f"Turn {i}",
@@ -124,18 +101,8 @@ async def test_read_contract_simulation(unique_pod_agent: tuple[str, str], redis
         assert turns[0]["content"] == "Turn 0"
         assert turns[2]["content"] == "Turn 2"
 
-    finally:
-        try:
-            await anext(w_gen)
-        except StopAsyncIteration:
-            pass
-
-        # Cleanup
-        del_config = HMemoryDeleteChatConfig(pod=pod, agent=agent)
-        del_gen = h_memory_delete_chat(del_config)
-        del_info = await anext(del_gen)
-        await del_info.fn(DeleteChatInput(chat_id=chat_id))
-        try:
-            await anext(del_gen)
-        except StopAsyncIteration:
-            pass
+    # Cleanup
+    del_config = HMemoryDeleteChatConfig(pod=pod, agent=agent)
+    async with h_memory_delete_chat(del_config) as del_info:
+        del_fn = getattr(del_info, "single_fn", getattr(del_info, "fn", None))
+        await del_fn(DeleteChatInput(chat_id=chat_id))
