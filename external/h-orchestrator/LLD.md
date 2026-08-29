@@ -15,7 +15,7 @@ owns the mechanisms that are implemented now.
 
 The package implements generic unary and streaming execution, Claude unary and
 stream-json wrappers, two unary parsers, and a dispatcher-agnostic
-Redis-backed chat cycle.
+Redis-backed chat cycle, and a gated direct SSH executor.
 
 The predecessor's `claude_via_hramp` and `h_claude_cycle` functions have not
 been ported. No h-ramp dependency is declared.
@@ -34,12 +34,16 @@ external/h-orchestrator/
 │   ├── sweep.yaml
 │   ├── vectorize.yaml
 │   └── workflow.yaml
+├── examples/gated-ssh/
+│   ├── README.md
+│   └── workflow.yaml
 ├── src/nat/plugins/h_orchestrator/
 │   ├── __init__.py
 │   ├── chat_cycle.py
 │   ├── claude_stream.py
 │   ├── core.py
 │   ├── register.py
+│   ├── ssh_exec.py
 │   └── parsers/
 │       ├── __init__.py
 │       ├── raw.py
@@ -52,7 +56,8 @@ external/h-orchestrator/
 ```
 
 The distribution is `h-orchestrator`, version `0.1.0`, supporting Python
-3.11-3.13. Runtime dependencies are `h-memory`, `h-openshell`, Redis 7.1,
+3.11-3.13. Runtime dependencies are AsyncSSH 2.x, `h-asimov`, `h-memory`,
+`h-openshell`, Redis 7.1,
 `nvidia-nat-core>=1.8,<2`, and Pydantic 2. The namespace package is
 `nat.plugins.h_orchestrator`. Plugin-authoring symbols are imported from the
 stable `nat.plugin_api` facade.
@@ -176,6 +181,30 @@ configured NAT dispatcher under one async lock. Each invocation:
 String converters accept either a JSON typed request or a bare message and
 reduce typed output to its result text. The Redis client closes at teardown.
 
+### `h_ssh_exec`
+
+`SshExecConfig` is strict and requires `gate_fn: FunctionRef`, `username`, and
+at least one deployment credential: a Pydantic `SecretStr` password or a
+private-key path. An optional key passphrase requires a key. Port, known-hosts
+path, host-key verification, connect timeout, and command timeout are also
+deployment fields. The agent-visible `SshExecRequest` contains only non-empty
+`host` and `command` strings.
+
+The builder resolves the configured gate once. Each invocation freezes the
+request host and command, constructs one canonical JSON gate subject containing
+`action`, `host`, `port`, and `command`, and calls the
+gate without string conversion. Execution proceeds only when the returned
+object's verdict is exactly `ALLOW`; DENY and gate-error decisions return a
+typed refusal containing layer and reason without opening a connection.
+
+On ALLOW, the function opens a direct AsyncSSH connection from the NAT process,
+executes the exact request command without shell reconstruction, and closes
+the connection through its async context manager. Host-key verification is on
+by default using `~/.ssh/known_hosts`; disabling it explicitly passes
+`known_hosts=None`. Expected SSH, network, and timeout errors return a typed
+error. Output, stderr, and integer exit status are returned separately.
+Credentials never enter the request model, gate subject, response, or logs.
+
 ## Script construction
 
 `build_script` returns UTF-8 bytes beginning with `set -e`. The command and
@@ -253,12 +282,20 @@ client. It verifies:
 - chat addressing, prompt shape, chronological reads, missing-axis errors, and
   hot context across consecutive invocations; and
 - concrete chat-cycle input/output annotations for NAT schema inspection.
+- gated SSH credential-schema exclusion, deny-without-connect, exact
+  gate/execution inputs, and connection cleanup.
 
 `tests/fixtures/chat_cycle_smoke.yaml` is also exercised with a real NAT 1.8
 `nat run` and Redis instance. It builds `h_chat_cycle`, resolves its input
 schema, dispatches to `current_datetime`, persists the turn, and returns the
 workflow result. A full OpenShell stream event matrix still requires an
 environment with `nvidia-nat-core` and `h-openshell` installed.
+
+`tests/fixtures/ssh_exec_smoke.yaml` is exercised against a local AsyncSSH
+server with a real NAT 1.8 `nat run`. It resolves a configured noop
+`h_asimov_gate`, receives `ALLOW`, authenticates using deployment config,
+executes the exact request command, and returns the typed result. Host-key
+verification is disabled only in this isolated smoke fixture.
 
 ## Disagreements and remaining baseline work
 
