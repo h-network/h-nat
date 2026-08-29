@@ -13,11 +13,14 @@ the concrete mechanisms used to realize it.
 
 ## Current repository state
 
-As of 2026-08-29, `external/h-openshell/` contains design documentation only.
-There is no installable package, Python module, generated protobuf code, NAT
-entry point, or test suite in this directory yet. Consequently, none of the
-interfaces described as intended in `HLD.md` are currently implemented by the
-public `h-openshell` module.
+As of 2026-08-29, `external/h-openshell/` contains the first reviewable Python
+client slice. It is an installable `h-openshell` distribution with stable
+domain values, typed module errors, gateway-home/mTLS discovery, a reusable
+async gRPC client, pinned protobuf source, vendored generated stubs, and unit
+tests. The wheel imports without `protoc` or a post-install generation step.
+
+NAT function registration is not implemented in this slice. The intended
+`h_openshell_*` interfaces in `HLD.md` therefore are not NAT-discoverable yet.
 
 The earlier `h-network-openshell-communicator` repository is a behavioral
 reference, not code shipped from this directory. Its behavior must be reviewed,
@@ -28,51 +31,51 @@ must not be treated as implicitly present here.
 
 | Area | Current state | Required next update to this LLD |
 |---|---|---|
-| Packaging | absent | record distribution name, Python package, dependencies, and entry point |
-| Gateway client | absent | record constructor, channel ownership, public methods, and errors |
-| Wire schema | absent | record exact upstream version/commit, source URLs, and stub strategy |
-| NAT functions | absent | record registered config classes, `_type` names, inputs, and outputs |
+| Packaging | `h-openshell` 0.1.0.dev0; Python 3.11–3.13; grpcio/protobuf runtime | add the `nat.components` entry point with registration |
+| Gateway client | implemented in `client.py` | extend only with tests and same-branch LLD updates |
+| Wire schema | OpenShell v0.0.36 sources and generated stubs vendored in `_proto/` | verify against a live v0.0.36 gateway |
+| NAT functions | absent | add config classes, canonical `_type` names, inputs, and outputs |
 | NAT resource | absent and not contracted | document only if a resource is actually introduced |
-| Verification | absent | map tests to the invariants below as tests land |
+| Verification | nine unit tests plus clean-wheel build/import check | add NAT discovery and live-gateway integration coverage |
 
-The sections below are the implementation constraints for the first code
-change. They are labelled **target shape** until matching files exist. When a
-piece lands, replace the target wording with exact filenames and behavior.
+Sections describing present client code are factual. Sections headed “Target”
+remain the contract for work that has not landed yet.
 
-## Target package shape
+## Package shape
 
-The initial implementation should keep transport, domain values, and NAT
-adaptation separate. Exact filenames remain a code-review decision, but the
-responsibilities are:
+The implementation keeps transport and domain values separate. NAT adaptation
+is the next slice:
 
 ```text
 external/h-openshell/
 ├── HLD.md
 ├── LLD.md
 ├── README.md                  operator-facing usage
-├── pyproject.toml             package metadata and NAT entry point
-├── src/.../h_openshell/
+├── pyproject.toml             package metadata and dependencies
+├── src/nat/plugins/h_openshell/
 │   ├── __init__.py            intentionally exported Python API
 │   ├── client.py              async gateway adapter
 │   ├── models.py              stable Sandbox and ExecResult values
-│   ├── register.py            thin NAT configs and builders
-│   └── _proto/                pinned schema and/or generated stubs
+│   ├── errors.py              public module exception hierarchy
+│   ├── register.py            target: thin NAT configs and builders
+│   └── _proto/                pinned schema and generated stubs
 └── tests/
-    ├── unit/                  fake-stub behavior and serialization
-    └── integration/           opt-in tests against a compatible gateway
+    ├── test_client.py         fake-stub client behavior
+    └── integration/           target: opt-in compatible-gateway tests
 ```
 
 Generated modules are private implementation details. `__init__.py` should
 export only the supported Python API so callers do not depend on protobuf
 classes accidentally.
 
-## Target client mechanics
+## Client mechanics
 
 ### Construction
 
-`OpenShellClient` owns one `grpc.aio.Channel` and its generated gateway stub.
-It supports explicit construction from endpoint and certificate bytes for
-tests and advanced callers, plus a convenience constructor that resolves:
+`client.py` defines `OpenShellClient`, which owns one `grpc.aio.Channel` and its
+generated gateway stub. It supports explicit construction from endpoint and
+certificate bytes for tests and advanced callers, plus `from_default_home`,
+which resolves:
 
 1. the OpenShell home from an explicit path, then `OPENSHELL_HOME`, then the
    platform default;
@@ -86,11 +89,13 @@ mode. Construction failures identify the missing or invalid configuration path
 without including secret file contents.
 
 The client implements `__aenter__`, `__aexit__`, and idempotent asynchronous
-close behavior. NAT builders own and close the clients they create.
+close behavior. Constructor-only `channel_factory` and `stub_factory` injection
+points keep transport tests deterministic without widening the exported API.
 
 ### Stable values
 
-Gateway protobuf messages are converted at the boundary:
+`models.py` defines frozen, slotted dataclasses. Gateway protobuf messages are
+converted at the boundary:
 
 - `Sandbox` includes gateway ID, consumer-facing name, namespace, numeric
   phase, and symbolic phase name.
@@ -108,14 +113,14 @@ mapping: deletion followed by creation with the same name can produce a new
 UUID. A syntactically valid UUID may take a direct fast path where the gateway
 RPC accepts it.
 
-When an RPC is name-keyed and the caller supplies a UUID, resolution must use a
-gateway lookup with defined pagination behavior. A first implementation that
-scans only one fixed-size list page must document that limitation or reject
-UUID input rather than claiming exhaustive resolution.
+When an RPC is name-keyed and the caller supplies a UUID, `_resolve_name`
+requests offset-based pages of 100 until it finds the UUID or exhausts results.
+It also stops if a gateway repeats only already-seen IDs, preventing an
+infinite loop if offset is ignored.
 
 ### Lifecycle calls
 
-The target first-release client maps to the public gateway API as follows:
+The first-release client maps to the public gateway API as follows:
 
 | Client operation | Gateway behavior |
 |---|---|
@@ -127,27 +132,29 @@ The target first-release client maps to the public gateway API as follows:
 | `exec_stream` | resolve required identity, send exec request, yield events |
 | `exec` | consume `exec_stream`, preserving stdout, stderr, and exit code |
 
-Create first checks for an existing sandbox with the same name. Ready returns
+`create_sandbox` first checks paginated results for an existing sandbox with
+the same name. Ready returns
 success; an in-progress phase is watched or polled until ready; an error phase
-raises a typed module error; deadline expiry raises a timeout that includes the
-last observed phase. The implementation may prefer `WatchSandbox` over polling
-when verified against the pinned gateway, but the chosen mechanism must be
-recorded here when code lands.
+raises `SandboxLifecycleError`; deadline expiry raises `SandboxTimeoutError`
+with the last observed phase. This slice polls `GetSandbox`; adopting
+`WatchSandbox` requires compatible-gateway verification and an LLD update.
 
-Delete with waiting enabled succeeds only when absence is confirmed. gRPC
-`NOT_FOUND` is the expected terminal state; unrelated RPC failures propagate.
-A timeout must not be reported as confirmed deletion merely because the initial
+`delete_sandbox` with waiting enabled succeeds only when absence is confirmed.
+gRPC `NOT_FOUND` is the expected terminal state; unrelated RPC failures are
+wrapped in `GatewayRPCError` with their status available through
+`status_code`. Timeout raises `SandboxTimeoutError` even when the initial
 delete response was positive.
 
 ### Execution calls
 
-The Python streaming surface yields gateway events or a documented stable event
-type without buffering the complete output. Cancellation by the async consumer
-must cancel or close the underlying gRPC call promptly.
+`exec_stream` yields pinned gateway `ExecSandboxEvent` objects without buffering
+the complete output. It does not intercept `asyncio.CancelledError`, allowing
+async-generator cancellation to propagate into the underlying gRPC iterator.
 
-The collected surface consumes that stream, appends stdout and stderr bytes in
+`exec` consumes that stream, appends stdout and stderr bytes in
 event order within their respective streams, and records the terminal exit
-code. Missing terminal exit data is distinguishable from exit code zero.
+code. `ExecResult.exit_code` is `None` when no terminal exit event arrives, so
+missing terminal data is distinguishable from exit code zero.
 
 No automatic execution retry is permitted in the initial implementation.
 
@@ -181,24 +188,24 @@ non-zero exit without making it indistinguishable from ordinary stdout.
 
 ## Wire compatibility and generated code
 
-Before the first client code lands, the implementation must select and record
-an exact OpenShell release or commit whose protobuf layout matches the tested
-gateway. Each vendored `.proto` file must carry source provenance. Using newer
-schemas merely because they are on upstream `main` is unsafe when gateway
-response layouts differ.
+`src/nat/plugins/h_openshell/_proto/` vendors `datamodel.proto`,
+`sandbox.proto`, and `openshell.proto` from OpenShell v0.0.36. Each source file
+records that version and its upstream source URL. The package also vendors the
+six `_pb2.py`/`_pb2_grpc.py` files generated with `grpcio-tools==1.60.1` and
+`protobuf==4.25.8`, the oldest supported toolchain line. Generated intra-schema
+imports are mechanically rewritten to package-relative imports.
 
-The packaging choice must satisfy a clean-wheel test. Acceptable strategies are
-vendored generated stubs or deterministic generation as part of the build;
-requiring users to run a post-install shell script is not the public-release
-target. Runtime imports must not mutate global `sys.path` unless the final stub
-layout makes that unavoidable and the trade-off is recorded here.
+This keeps the declared runtime range (`grpcio>=1.60,<2`, `protobuf>=4,<7`)
+honest and lets a clean wheel import without `protoc`. Runtime imports do not
+mutate `sys.path`. Updating the schema or generator requires regenerating all
+six files, rerunning unit and wheel checks, and updating this section.
 
 ## Errors, deadlines, and logging
 
-The implementation should define a small module exception hierarchy that
-preserves the originating gRPC status and operation context. At minimum callers
-must be able to distinguish configuration/authentication failure, gateway RPC
-failure, lifecycle error phase, and lifecycle deadline expiry.
+`errors.py` defines `OpenShellError`, `ConfigurationError`, `GatewayRPCError`,
+`SandboxLifecycleError`, and `SandboxTimeoutError`. `GatewayRPCError` retains
+the original exception as `cause` and exposes its gRPC status as
+`status_code`. `SandboxTimeoutError` is also a standard `TimeoutError`.
 
 Every network operation has a finite configurable deadline. Logs may include
 gateway endpoint, operation, sandbox name, phase, status code, duration, and
@@ -207,7 +214,10 @@ stdin, or full command output by default.
 
 ## Verification invariants
 
-Tests added with the implementation must lock at least these behaviors:
+The current unit tests lock behaviors 1, 3–5, 7, and 9 below, with incremental
+event consumption covered as part of exec aggregation. Wheel build/import
+locks 11. Create transitions, explicit cancellation, and NAT discovery remain
+follow-up coverage:
 
 1. gateway-home precedence and endpoint normalization;
 2. mTLS channel creation with verification retained;

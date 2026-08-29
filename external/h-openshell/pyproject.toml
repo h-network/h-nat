@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "h-openshell"
+version = "0.1.0.dev0"
+description = "Async NVIDIA OpenShell gateway client and NeMo Agent Toolkit plugin"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+license = "Apache-2.0"
+authors = [{name = "h-network"}]
+dependencies = [
+  "grpcio>=1.60,<2",
+  "protobuf>=4,<7",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest>=7",
+  "pytest-asyncio>=0.23",
+]
+nat = [
+  "nvidia-nat>=1.6,<2",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["nat.*"]
+namespaces = true
+
+[tool.setuptools.package-data]
+"nat.plugins.h_openshell._proto" = ["*.proto"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
