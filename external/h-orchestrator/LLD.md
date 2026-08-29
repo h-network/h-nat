@@ -28,6 +28,12 @@ external/h-orchestrator/
 ├── LLD.md
 ├── README.md
 ├── pyproject.toml
+├── examples/hot-memory-recall-tool/
+│   ├── README.md
+│   ├── run_demo.py
+│   ├── sweep.yaml
+│   ├── vectorize.yaml
+│   └── workflow.yaml
 ├── src/nat/plugins/h_orchestrator/
 │   ├── __init__.py
 │   ├── chat_cycle.py
@@ -141,7 +147,7 @@ Stderr is logged with a 300-character bound.
 
 ### `h_chat_cycle`
 
-`HChatCycleConfig` is strict. It requires a dispatcher name and accepts
+`HChatCycleConfig` is strict. It requires a NAT `FunctionRef` dispatcher and accepts
 optional `chat_id`, `pod`, and `agent` defaults, Redis URL, hot-tier count bound,
 and turn TTL. `HChatCycleInput` contains a required message plus optional
 per-request addressing and metadata. Per-request addressing wins over config;
@@ -238,7 +244,8 @@ client. It verifies:
 - missing streaming terminal-event reporting;
 - Claude stream decoding across split UTF-8 and JSON chunks;
 - Claude stream error-result handling; and
-- chat addressing, prompt shape, chronological reads, and missing-axis errors.
+- chat addressing, prompt shape, chronological reads, missing-axis errors, and
+  hot context across consecutive invocations.
 
 A real NAT loader/discovery smoke and full stream event matrix still require an
 environment with `nvidia-nat-core` and `h-openshell` installed.
@@ -266,3 +273,36 @@ environment with `nvidia-nat-core` and `h-openshell` installed.
 7. The predecessor parser comments proposed streaming parser variants, but
    neither predecessor nor current code implements them. The current streaming
    path explicitly bypasses the unary registry.
+
+## Hot-memory and recall-tool example
+
+The production example configures an OpenAI-compatible NAT LLM, a
+`h_semantic_search` function named `recall_search`, a `tool_calling_agent`
+function named `recall_agent`, and `h_chat_cycle` as the outer workflow.
+`HChatCycleConfig.dispatcher` is a NAT `FunctionRef`, so `recall_agent` is
+validated as a configured function reference rather than accepted as an
+arbitrary string.
+
+The example extra installs `h-recall` and `nvidia-nat[langchain]>=1.8,<2`.
+Runtime endpoint/model values use NAT environment interpolation. A fixed
+`recall-demo-chat` ID is included in the agent system prompt because
+`SemanticSearchInput.chat_id` is a required tool argument and tool-calling
+agents do not infer workflow configuration fields.
+
+`run_demo.py` invokes the real YAML with `nat run` for every turn. Redis carries
+state across processes. It performs explicit h-recall sweep and vectorize
+passes, checks NAT's verbose trace for conditional `recall_search` use, and
+uses a random codeword to prove the recall answer came from stored history.
+The driver first verifies that the configured Redis exposes Search and JSON
+modules. A live OpenAI-compatible tool-calling model and Redis Stack are
+required; deterministic tests validate YAML topology and trace matching
+without those external services.
+
+An optional test, enabled by the `example` extra, uses NAT 1.8's real
+`ToolCallAgentGraph` with a scripted LangChain chat model. One case returns a
+direct answer and proves the recall tool is untouched; the other emits a typed
+`recall_search` tool call, executes it through the graph, and verifies the
+exact `chat_id`, query, `top_k`, and mode arguments before the final answer.
+All three YAML files also pass `nat validate` in a clean environment containing
+the local h-nat packages, `nvidia-nat-langchain` 1.8, and the example
+dependencies; validation performs no endpoint calls.

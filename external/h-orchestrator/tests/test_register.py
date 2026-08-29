@@ -46,6 +46,7 @@ def register_module():
         Builder=object,
         FunctionBaseConfig=FunctionBaseConfig,
         FunctionInfo=FunctionInfo,
+        FunctionRef=str,
         register_function=register_function,
     )
     _module("nat.plugins.h_openshell", OpenShellClient=OpenShellClient)
@@ -297,3 +298,69 @@ async def test_chat_cycle_dispatches_writes_and_closes(register_module, monkeypa
     assert [turn[1] for turn in written] == ["user", "assistant"]
     await generator.aclose()
     assert redis.closed
+
+
+@pytest.mark.asyncio
+async def test_chat_cycle_keeps_hot_context_across_turns(register_module, monkeypatch):
+    module = sys.modules["nat.plugins.h_orchestrator.chat_cycle"]
+    payloads = {}
+    index = []
+
+    class Redis:
+        async def zrevrange(self, key, start, end):
+            return list(reversed(index))
+
+        async def mget(self, *keys):
+            return [payloads[key] for key in keys]
+
+        async def aclose(self):
+            pass
+
+    redis = Redis()
+
+    class Store:
+        def __init__(self, **kwargs):
+            pass
+
+        async def write_turn(
+            self, chat_id, role, content, ttl_seconds, *, hot_keep_count
+        ):
+            import json
+
+            key = f"turn:{len(index)}"
+            payloads[key] = json.dumps({"role": role, "content": content})
+            index.append(key)
+            return key
+
+    prompts = []
+
+    class Dispatcher:
+        async def ainvoke(self, prompt, to_type):
+            prompts.append(prompt)
+            return "first answer" if len(prompts) == 1 else "second answer"
+
+    class Builder:
+        async def get_function(self, name):
+            return Dispatcher()
+
+    monkeypatch.setattr(
+        module.aioredis,
+        "Redis",
+        SimpleNamespace(from_url=lambda *args, **kwargs: redis),
+    )
+    monkeypatch.setattr(module, "BoundedBufferStore", Store)
+    config = module.HChatCycleConfig(
+        dispatcher="agent", chat_id="chat", pod="pod", agent="agent"
+    )
+    generator = module.h_chat_cycle(config, Builder())
+    function_info = await anext(generator)
+    await function_info.function(module.HChatCycleInput(message="first question"))
+    await function_info.function(module.HChatCycleInput(message="second question"))
+    assert prompts == [
+        "first question",
+        "Previous conversation:\n"
+        "[user] first question\n"
+        "[assistant] first answer\n\n"
+        "Current message:\nsecond question\n",
+    ]
+    await generator.aclose()

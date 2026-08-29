@@ -106,3 +106,17 @@ The implementation should keep these concerns separate:
 
 This separation lets another CLI, parser, or dispatcher be added without
 changing the generic execution path or coupling one-shot invocation to memory.
+
+## Production composition example
+
+`examples/hot-memory-recall-tool` demonstrates the intended two-tier memory
+composition. `h_chat_cycle` always supplies recent `h-memory` turns to a
+configured NAT `tool_calling_agent`. The agent uses an OpenAI-compatible LLM
+and receives `h_semantic_search` as an optional tool, so the model—not the
+outer cycle—decides when long-term recall is necessary. h-recall migration and
+vectorization remain explicit operator-scheduled maintenance operations.
+
+The example fixes one chat/tenant identity across the hot store, audit store,
+and tool instructions. Its verifier seeds a random fact, migrates it out of hot
+memory, asserts that a self-contained question does not call recall, then
+asserts that an older-fact question calls recall and returns the random fact.
