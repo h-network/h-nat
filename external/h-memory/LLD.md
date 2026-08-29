@@ -11,7 +11,7 @@
 ```
 external/h-memory/
 ├── pyproject.toml                     # Package metadata, NAT entry point registration
-├── requirements.txt                   # Production dependencies (redis>=5,<7, nvidia-nat>=1.6,<2)
+├── requirements.txt                   # Production dependencies (redis>=5,<8, nvidia-nat>=1.6,<2)
 ├── requirements-test.txt              # Test dependencies (pytest, pytest-asyncio)
 ├── pytest.ini                         # Pytest configuration
 ├── HLD.md                             # High-level architecture and system fit
@@ -42,7 +42,7 @@ external/h-memory/
 - **Entry Point**: `[project.entry-points."nat.components"]` maps:
   - `h_memory = "nat.plugins.h_memory.register"`
   - `h_network_memory = "nat.plugins.h_network_memory.register"`
-- **Runtime Dependencies**: `redis>=5,<7`, `pydantic>=2.0`, `nvidia-nat>=1.6,<2`.
+- **Runtime Dependencies**: `redis>=5,<8`, `pydantic>=2.0`, `nvidia-nat>=1.6,<2`.
 - **Python Version**: `>=3.11,<3.14`.
 
 ---

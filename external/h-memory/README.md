@@ -21,7 +21,7 @@ The two NAT functions are the operator-facing surface: workflow YAMLs reference 
 ```
 external/h-memory/
 ├── pyproject.toml                     # Package metadata & NAT entry points
-├── requirements.txt                   # Runtime dependencies (redis>=5,<7, nvidia-nat>=1.6,<2)
+├── requirements.txt                   # Runtime dependencies (redis>=5,<8, nvidia-nat>=1.6,<2)
 ├── requirements-test.txt              # Test dependencies (pytest, pytest-asyncio)
 ├── HLD.md                             # High-level architecture & system design
 ├── LLD.md                             # Canonical low-level technical specification

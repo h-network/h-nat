@@ -30,6 +30,7 @@ Keyspace shape per ``docs/adrs/ADR-012-redis-naming-contract.md``:
 # classes are not defined), raising NameError. Eager (non-future)
 # annotations resolve at definition time and avoid the issue.
 
+import contextlib
 import logging
 from collections.abc import AsyncGenerator
 from typing import Any, Callable, Optional
@@ -55,6 +56,7 @@ except ImportError:
     class FunctionInfo:  # type: ignore[no-redef]
         def __init__(self, fn: Any, converters: Optional[list[Any]] = None, description: str = ""):
             self.fn = fn
+            self.single_fn = fn
             self.converters = converters or []
             self.description = description
 
@@ -64,8 +66,9 @@ except ImportError:
 
     def register_function(config_type: Any) -> Callable[[Any], Any]:  # type: ignore[no-redef]
         def decorator(fn: Any) -> Any:
-            fn._config_type = config_type
-            return fn
+            wrapped = contextlib.asynccontextmanager(fn)
+            wrapped._config_type = config_type
+            return wrapped
         return decorator
 
     class FunctionBaseConfig(BaseModel):  # type: ignore[no-redef]
