@@ -1,0 +1,7 @@
+workflow:
+  _type: h_memory_write_turn
+  redis_url: redis://localhost:6379
+  pod: example-pod
+  agent: example-agent
+  ttl_seconds_max: 86400
+  hot_keep_count: 50

@@ -1,0 +1,7 @@
+# Demonstrates composing h-memory with orchestrator chat cycle
+workflow:
+  _type: h_memory_write_turn
+  redis_url: redis://localhost:6379
+  pod: default-pod
+  agent: orchestrator-agent
+  ttl_seconds_max: 86400
