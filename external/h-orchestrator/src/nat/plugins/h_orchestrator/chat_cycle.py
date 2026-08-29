@@ -11,7 +11,13 @@ from typing import Any
 import redis.asyncio as aioredis
 from pydantic import BaseModel, ConfigDict, Field
 
-from nat.plugin_api import Builder, FunctionBaseConfig, FunctionInfo, register_function
+from nat.plugin_api import (
+    Builder,
+    FunctionBaseConfig,
+    FunctionInfo,
+    FunctionRef,
+    register_function,
+)
 from nat.plugins.h_memory import BoundedBufferStore
 
 logger = logging.getLogger(__name__)
@@ -22,7 +28,7 @@ _TOKEN_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_-]*$"
 class HChatCycleConfig(FunctionBaseConfig, name="h_chat_cycle"):
     model_config = ConfigDict(extra="forbid")
 
-    dispatcher: str = Field(min_length=1)
+    dispatcher: FunctionRef
     chat_id: str | None = Field(default=None, min_length=1)
     pod: str | None = Field(default=None, pattern=_TOKEN_PATTERN)
     agent: str | None = Field(default=None, pattern=_TOKEN_PATTERN)

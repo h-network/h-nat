@@ -24,6 +24,10 @@ test = [
   "pytest>=8",
   "pytest-asyncio>=0.24",
 ]
+example = [
+  "h-recall",
+  "nvidia-nat[langchain]>=1.8,<2",
+]
 
 [project.entry-points."nat.plugins"]
 h_orchestrator = "nat.plugins.h_orchestrator.register"
