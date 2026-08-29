@@ -46,7 +46,7 @@ external/h-orchestrator/
 ```
 
 The distribution is `h-orchestrator`, version `0.1.0`, supporting Python
-3.11-3.13. Runtime dependencies are `h-memory`, `h-openshell`, Redis 5-6,
+3.11-3.13. Runtime dependencies are `h-memory`, `h-openshell`, Redis 7.1,
 `nvidia-nat-core>=1.8,<2`, and Pydantic 2. The namespace package is
 `nat.plugins.h_orchestrator`. Plugin-authoring symbols are imported from the
 stable `nat.plugin_api` facade.
