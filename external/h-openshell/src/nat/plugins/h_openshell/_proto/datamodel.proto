@@ -1,0 +1,18 @@
+
+// Vendored from NVIDIA/OpenShell v0.0.36 for gateway wire compatibility.
+// Source: https://github.com/NVIDIA/OpenShell/tree/v0.0.36/proto
+syntax = "proto3";
+
+package openshell.datamodel.v1;
+
+// Provider model stored by OpenShell.
+message Provider {
+  string id = 1;
+  string name = 2;
+  // Canonical provider type slug (for example: "claude", "gitlab").
+  string type = 3;
+  // Secret values used for authentication.
+  map<string, string> credentials = 4;
+  // Non-secret provider configuration.
+  map<string, string> config = 5;
+}
