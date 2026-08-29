@@ -11,20 +11,38 @@
 ```
 external/h-memory/
 ├── pyproject.toml                     # Package metadata, NAT entry point registration
-├── requirements.txt                   # Production dependencies (redis>=5,<7)
+├── requirements.txt                   # Production dependencies (redis>=5,<7, nvidia-nat>=1.6,<2)
 ├── requirements-test.txt              # Test dependencies (pytest, pytest-asyncio)
+├── pytest.ini                         # Pytest configuration
 ├── HLD.md                             # High-level architecture and system fit
 ├── LLD.md                             # Canonical low-level specification (this file)
-└── src/nat/plugins/h_network_memory/  # Plugin source tree (or h_memory)
-    ├── __init__.py                    # Public exports (BoundedBufferStore, functions)
-    ├── memory.py                      # BoundedBufferStore core engine
-    └── register.py                    # NAT function registration, Pydantic models, CLI converters
+├── README.md                          # Quickstart and overview
+├── INSTALL.md                         # Installation and verification guide
+├── src/nat/plugins/h_memory/          # Plugin source tree
+│   ├── __init__.py                    # Public exports (BoundedBufferStore, functions)
+│   ├── memory.py                      # BoundedBufferStore core engine
+│   └── register.py                    # NAT function registration, Pydantic models, CLI converters
+├── src/nat/plugins/h_network_memory/  # Backwards-compatible import bridge
+│   ├── __init__.py
+│   ├── memory.py
+│   └── register.py
+├── tests/                             # Unit and integration test suite
+│   ├── conftest.py
+│   ├── test_memory.py
+│   ├── test_register.py
+│   └── test_integration.py
+└── examples/                          # Example workflow configurations
+    ├── workflow_write.yaml
+    ├── workflow_delete.yaml
+    └── with_orchestrator/workflow.yaml
 ```
 
 ### 1.2 Package Entry Point & Dependencies
-- **Package Name**: `h-network-memory` (in `pyproject.toml`) / `h-memory` (in `h-nat` module suite).
-- **Entry Point**: `[project.entry-points."nat.components"]` maps `h_network_memory = "nat.plugins.h_network_memory.register"`.
-- **Runtime Dependency**: `redis>=5,<7` (`redis.asyncio` client).
+- **Package Name**: `h-memory` (in `pyproject.toml`).
+- **Entry Point**: `[project.entry-points."nat.components"]` maps:
+  - `h_memory = "nat.plugins.h_memory.register"`
+  - `h_network_memory = "nat.plugins.h_network_memory.register"`
+- **Runtime Dependencies**: `redis>=5,<7`, `pydantic>=2.0`, `nvidia-nat>=1.6,<2`.
 - **Python Version**: `>=3.11,<3.14`.
 
 ---

@@ -1,0 +1,5 @@
+workflow:
+  _type: h_memory_delete_chat
+  redis_url: redis://localhost:6379
+  pod: example-pod
+  agent: example-agent
