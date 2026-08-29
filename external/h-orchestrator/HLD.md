@@ -24,7 +24,7 @@ not confused.
 
 ## Public interface
 
-Five NAT function types are implemented. h-ramp-dependent predecessor
+Six NAT function types are implemented. h-ramp-dependent predecessor
 functions are deferred because h-ramp has no public package contract in the
 five-module `h-nat` plan.
 
@@ -35,6 +35,7 @@ five-module `h-nat` plan.
 | `claude_invoke` | Implemented | `str -> str` | Apply Claude CLI defaults to the generic invocation path. |
 | `claude_stream` | Implemented | `str -> str` | Consume Claude stream-json events and return the final assistant text. |
 | `h_chat_cycle` | Implemented | typed chat input -> typed chat output | Read bounded history, call a configured NAT dispatcher, and persist the new turn. |
+| `h_ssh_exec` | Implemented | host + command -> typed execution result | Gate an exact target/command with `h_asimov_gate`, then execute it directly over SSH using deployment credentials. |
 | `claude_via_hramp` | Deferred | `str -> str` | Would dispatch a Claude CLI command through h-ramp without memory composition. |
 | `h_claude_cycle` | Deferred | typed chat input -> typed chat output | Would read bounded history, dispatch Claude through h-ramp, and persist the new turn. |
 
@@ -60,6 +61,8 @@ NAT workflow / API caller
           |                                                     |
           +-- explicit chat cycle -> h-memory / Redis           |
                                   -> dispatcher ----------------+
+          |
+          +-- gated SSH -> h-asimov -> direct network target
 ```
 
 `h-orchestrator` fits between NAT workflows and an execution transport:
@@ -72,6 +75,8 @@ NAT workflow / API caller
   imports memory concerns; the explicit cycle layer composes with it.
 - `h-recall` may supply long-term context at the caller/workflow layer. It is
   not an implicit dependency of an invocation.
+- `h-asimov` supplies the pure ALLOW/DENY judge required by direct SSH. The
+  SSH tool owns enforcement and never sends credentials to the judge.
 - NAT supplies plugin discovery, configuration models, function registration,
   type conversion, and tracing integration.
 
@@ -88,6 +93,9 @@ NAT workflow / API caller
 - Prompts and command arguments are shell-quoted before execution. Transport
   security and sandbox policy remain the responsibility of the transport
   module and deployment.
+- Direct SSH is a separate typed function, not a mode of the sandbox execution
+  core. Its agent input excludes credentials, and its deployment defaults to
+  SSH host-key verification and fail-closed authorization.
 - Failures need one documented contract per public function. The predecessor
   sometimes returns errors as strings; the port should preserve that only
   where compatibility requires it and otherwise prefer typed, observable

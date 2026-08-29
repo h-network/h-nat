@@ -1,5 +1,6 @@
 import asyncio
 import importlib
+import json
 import sys
 from types import ModuleType, SimpleNamespace
 
@@ -38,6 +39,9 @@ def register_module():
     class BoundedBufferStore:
         pass
 
+    class AsyncSshError(Exception):
+        pass
+
     def register_function(*, config_type):
         return lambda function: function
 
@@ -51,6 +55,13 @@ def register_module():
     )
     _module("nat.plugins.h_openshell", OpenShellClient=OpenShellClient)
     _module("nat.plugins.h_memory", BoundedBufferStore=BoundedBufferStore)
+    _module(
+        "asyncssh",
+        Error=AsyncSshError,
+        connect=lambda **kwargs: (_ for _ in ()).throw(
+            AssertionError("tests replace asyncssh.connect")
+        ),
+    )
     sys.modules.pop("nat.plugins.h_orchestrator.register", None)
     return importlib.import_module("nat.plugins.h_orchestrator.register")
 
@@ -300,6 +311,119 @@ async def test_chat_cycle_dispatches_writes_and_closes(register_module, monkeypa
     assert [turn[1] for turn in written] == ["user", "assistant"]
     await generator.aclose()
     assert redis.closed
+
+
+def test_ssh_exec_config_requires_deployment_credentials(register_module):
+    module = sys.modules["nat.plugins.h_orchestrator.ssh_exec"]
+    with pytest.raises(ValidationError, match="password or client_key"):
+        module.SshExecConfig(gate_fn="gate", username="operator")
+    config = module.SshExecConfig(
+        gate_fn="gate", username="operator", password="secret"
+    )
+    assert set(module.SshExecRequest.model_json_schema()["properties"]) == {
+        "host",
+        "command",
+    }
+    assert module._string_to_ssh_request(
+        '{"host":"router.example","command":"show version"}'
+    ) == module.SshExecRequest(host="router.example", command="show version")
+    assert "secret" not in repr(config)
+
+
+@pytest.mark.asyncio
+async def test_ssh_exec_denial_never_connects(register_module, monkeypatch):
+    module = sys.modules["nat.plugins.h_orchestrator.ssh_exec"]
+
+    class Gate:
+        async def ainvoke(self, subject):
+            assert json.loads(subject) == {
+                "action": "ssh_exec",
+                "host": "router.example",
+                "port": 22,
+                "command": "reload",
+            }
+            return SimpleNamespace(verdict="DENY", layer="L2_asimov", reason="unsafe")
+
+    class Builder:
+        async def get_function(self, name):
+            assert name == "gate"
+            return Gate()
+
+    monkeypatch.setattr(
+        module.asyncssh,
+        "connect",
+        lambda **kwargs: (_ for _ in ()).throw(AssertionError("SSH must not run")),
+    )
+    config = module.SshExecConfig(
+        gate_fn="gate", username="operator", password="secret"
+    )
+    generator = module.h_ssh_exec(config, Builder())
+    function_info = await anext(generator)
+    response = await function_info.function(
+        module.SshExecRequest(host="router.example", command="reload")
+    )
+    assert response.status == "denied"
+    assert response.gate_layer == "L2_asimov"
+    await generator.aclose()
+
+
+@pytest.mark.asyncio
+async def test_ssh_exec_allow_uses_exact_request_and_config_credentials(
+    register_module, monkeypatch
+):
+    module = sys.modules["nat.plugins.h_orchestrator.ssh_exec"]
+    calls = {}
+
+    class Gate:
+        async def ainvoke(self, subject):
+            calls["subject"] = subject
+            return SimpleNamespace(verdict="ALLOW", layer="passthrough", reason=None)
+
+    class Builder:
+        async def get_function(self, name):
+            return Gate()
+
+    class Connection:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            calls["closed"] = True
+
+        async def run(self, command, **kwargs):
+            calls["command"] = command
+            calls["run_kwargs"] = kwargs
+            return SimpleNamespace(stdout="output\n", stderr="", exit_status=0)
+
+    def connect(**kwargs):
+        calls["connect_kwargs"] = kwargs
+        return Connection()
+
+    monkeypatch.setattr(module.asyncssh, "connect", connect)
+    config = module.SshExecConfig(
+        gate_fn="gate",
+        username="operator",
+        password="secret",
+        known_hosts="/known_hosts",
+    )
+    generator = module.h_ssh_exec(config, Builder())
+    function_info = await anext(generator)
+    request = module.SshExecRequest(host="router.example", command="show route")
+    response = await function_info.function(request)
+    assert response.status == "ok"
+    assert response.output == "output\n"
+    assert json.loads(calls["subject"]) == {
+        "action": "ssh_exec",
+        "host": "router.example",
+        "port": 22,
+        "command": "show route",
+    }
+    assert calls["command"] == request.command
+    assert calls["connect_kwargs"]["host"] == request.host
+    assert calls["connect_kwargs"]["password"] == "secret"
+    assert calls["connect_kwargs"]["known_hosts"] == "/known_hosts"
+    assert calls["closed"]
+    await generator.aclose()
 
 
 @pytest.mark.asyncio

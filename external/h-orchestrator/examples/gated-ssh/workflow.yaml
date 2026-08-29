@@ -1,0 +1,28 @@
+llms:
+  safety_llm:
+    _type: openai
+    model_name: ${H_NAT_LLM_MODEL}
+    base_url: ${H_NAT_LLM_BASE_URL}
+    api_key: ${OPENAI_API_KEY}
+    temperature: 0.0
+
+functions:
+  ssh_gate:
+    _type: h_asimov_gate
+    llm_name: safety_llm
+    fail_open: false
+    ground_rules_inline: |
+      Allow read-only inspection commands explicitly requested by the operator.
+      Deny configuration changes, service disruption, credential access,
+      destructive actions, and commands whose effect is unclear.
+
+workflow:
+  _type: h_ssh_exec
+  gate_fn: ssh_gate
+  username: ${SSH_USERNAME}
+  password: ${SSH_PASSWORD}
+  port: 22
+  known_hosts: ${SSH_KNOWN_HOSTS}
+  verify_host_key: true
+  connect_timeout_seconds: 15
+  command_timeout_seconds: 60
