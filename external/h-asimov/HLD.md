@@ -33,7 +33,7 @@
                                 v
                     +-------------------------+
                     |     h_asimov_gate       |   command: str  -->
-                    |    (NAT Function)       |   Decision + gated result
+                    |    (NAT Function)       |   GateDecision (verdict/layer/reason)
                     +------------+------------+
                                  |
                                  v
@@ -61,20 +61,21 @@
 
 ### 2.1 NAT Function: `h_asimov_gate`
 - **Input**: `command: str` — the action being gated (e.g. a shell command destined for an execution backend).
-- **Output**: a `Decision` — verdict (`ALLOW`/`DENY`), a short human-readable reason, which layer produced it (`L1_denylist` / `L2_asimov` / `passthrough`), and the result of the gated call when the verdict is ALLOW.
+- **Output**: a `GateDecision` — verdict (`ALLOW`/`DENY`), which layer produced it (`L1_denylist` / `L2_asimov` / `passthrough` / `gate_error`), and a short human-readable reason. `h_asimov_gate` is a pure judge: it does not run the gated action itself — the calling workflow decides what to do with the verdict (see LLD.md §5.8).
 - **Workflow configuration**:
-  - `llm_name` — the NAT-registered LLM resource to use as the judge (so any NAT LLM backend works: NIM, OpenAI-compatible, Azure, etc.).
-  - `ground_rules` (path) or `ground_rules_inline` (string) — the rules document the judge evaluates against.
+  - `mode` — `asimov` (default, two-layer gate) or `noop` (always ALLOW, audited opt-out; see §2.2.3). See LLD.md §5.6.
+  - `llm_name` — the NAT-registered LLM resource to use as the judge (so any NAT LLM backend works: NIM, OpenAI-compatible, Azure, etc.). Required when `mode=asimov`.
+  - `ground_rules` (path) or `ground_rules_inline` (string) — the rules document the judge evaluates against. Exactly one required when `mode=asimov`.
   - `denylist` — path to substring patterns checked before the judge is invoked.
   - `fail_open` — default `false`. Governs behavior only when the judge itself errors (unreachable, malformed response); it has no effect on a judge-produced DENY.
 
 ### 2.2 Decision Semantics
 1. **Layer 1 — denylist short-circuit.** The command is normalized (lowercased, quotes stripped, whitespace collapsed) and checked against the configured patterns. Any match is an immediate DENY with `layer=L1_denylist` — the judge is never called.
 2. **Layer 2 — Asimov LLM judge.** If Layer 1 clears, the command is submitted to the judge alone, alongside the ground-rules document, with no other context. The judge returns one of three outcomes:
-   - `ALLOW` → gate clears, the gated call executes.
+   - `ALLOW` → gate clears (`layer=passthrough`).
    - `DENY: <reason>` → immediate DENY with `layer=L2_asimov` and the judge's reason.
-   - Judge error (unreachable, timeout, unparseable response) → **fail-closed**: DENY, distinguished from a rule-based denial (no `rule_id`) so the caller can map it to an internal-error condition rather than "this request was judged unsafe." If `fail_open=true`, this case ALLOWs instead, with a distinct audit event marking the fallback.
-3. **No-op variant.** A `NoopFirewall` implementation always ALLOWs and never calls the judge — for dev/test deployments or operators running their own external safety layer. It still emits an explicit "gate skipped" event, so its use is visible in the audit trail rather than indistinguishable from a real ALLOW.
+   - Judge error (unreachable, timeout, unparseable response) → **fail-closed**: DENY with `layer=gate_error`, distinguished from a rule-based denial so the caller can map it to an internal-error condition rather than "this request was judged unsafe." If `fail_open=true`, this case ALLOWs instead (`layer=passthrough`), with a distinct audit event marking the fallback.
+3. **No-op variant (`mode=noop`).** Always ALLOWs (`layer=passthrough`) and never calls the judge — for dev/test deployments or operators running their own external safety layer. It still emits an explicit "gate skipped" event, so its use is visible in the audit trail rather than indistinguishable from a real ALLOW.
 
 ### 2.3 Contract (all Firewall implementations)
 - Never raise on gate failure — a judge error is a DENY (or ALLOW, if fail-open), not an exception.

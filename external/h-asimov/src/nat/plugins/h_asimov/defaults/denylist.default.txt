@@ -1,0 +1,45 @@
+#
+# Substring match against the normalized command (lowercased,
+# single-spaced, quotes stripped). Comments (#) and blank lines
+# ignored. Operators add to this set via the `denylist` config field
+# (additive — never replaces these defaults).
+
+# Shell piping into interpreters
+| bash
+| sh
+| zsh
+| python
+| python3
+| perl
+| ruby
+
+# Encoded execution
+base64 -d
+eval $(
+eval "$(
+$(curl
+$(wget
+
+# Kernel / cgroup / namespace manipulation
+/proc/sys/kernel
+/sys/fs/cgroup
+unshare
+nsenter
+
+# Direct device or memory access
+/dev/kmem
+/dev/mem
+/dev/sda
+mkfs
+
+# Self-access of system files (write)
+> /etc/passwd
+> /etc/shadow
+> /etc/sudoers
+chmod 4755
+chmod u+s
+
+# Cloud metadata pivot
+169.254.169.254
+metadata.google.internal
+metadata.azure.com
