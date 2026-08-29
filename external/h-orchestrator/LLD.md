@@ -112,6 +112,12 @@ raw stdout only. The concrete nested return annotation is
 `AsyncGenerator[str, None]`, so `register.py` intentionally does not enable
 postponed evaluation of annotations.
 
+The same constraint applies to `chat_cycle.py`: its nested `invoke` function
+uses the module-local `HChatCycleInput` and `HChatCycleOutput` models.  The
+module therefore also avoids postponed annotations so NAT's
+`FunctionInfo.from_fn` schema inspection receives those concrete classes
+rather than unresolved strings.
+
 ### `claude_invoke`
 
 `ClaudeInvokeConfig` inherits the unary config and supplies:
@@ -238,9 +244,13 @@ client. It verifies:
 - missing streaming terminal-event reporting;
 - Claude stream decoding across split UTF-8 and JSON chunks;
 - Claude stream error-result handling; and
-- chat addressing, prompt shape, chronological reads, and missing-axis errors.
+- chat addressing, prompt shape, chronological reads, and missing-axis errors;
+- concrete chat-cycle input/output annotations for NAT schema inspection.
 
-A real NAT loader/discovery smoke and full stream event matrix still require an
+`tests/fixtures/chat_cycle_smoke.yaml` is also exercised with a real NAT 1.8
+`nat run` and Redis instance. It builds `h_chat_cycle`, resolves its input
+schema, dispatches to `current_datetime`, persists the turn, and returns the
+workflow result. A full OpenShell stream event matrix still requires an
 environment with `nvidia-nat-core` and `h-openshell` installed.
 
 ## Disagreements and remaining baseline work
