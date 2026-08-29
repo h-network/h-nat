@@ -2,9 +2,9 @@
 
 ## Status
 
-This document describes the intended target design for `h-orchestrator` in
-`h-nat`. The implementation has not landed in this repository yet. The
-starting specification is the existing
+This document describes the target design for `h-orchestrator` in `h-nat`.
+The first stateless invocation slice is implemented; memory-aware composites
+and h-ramp dispatch are not yet present. The starting specification is the existing
 `h-network-nemo-agent-toolkit/external/h-network-orchestrator` plugin; the port
 may simplify or refactor that design before it becomes the public
 `h-orchestrator` interface.
@@ -24,19 +24,19 @@ not confused.
 
 ## Public interface
 
-The predecessor provides the following NAT function types. These are the
-candidate target surface for the port, subject to review while the public API
-is implemented.
+The first three NAT function types are implemented. The remaining predecessor
+functions are candidate later slices, subject to review before they become
+public API.
 
-| Function type | Contract | Responsibility |
-| --- | --- | --- |
-| `h_agent_invoke` | `str -> str` | Run a prompt through a configured command and parse its final output. |
-| `h_agent_stream` | `str -> AsyncGenerator[str, None]` | Run a configured command and yield stdout chunks. |
-| `claude_invoke` | `str -> str` | Apply Claude CLI defaults to the generic invocation path. |
-| `claude_stream` | `str -> str` | Consume Claude stream-json events and return the final assistant text. |
-| `claude_via_hramp` | `str -> str` | Dispatch a Claude CLI command through h-ramp without memory composition. |
-| `h_chat_cycle` | typed chat input -> typed chat output | Read bounded history, call a configured NAT dispatcher, and persist the new turn. |
-| `h_claude_cycle` | typed chat input -> typed chat output | Read bounded history, dispatch Claude through h-ramp, and persist the new turn. |
+| Function type | Status | Contract | Responsibility |
+| --- | --- | --- | --- |
+| `h_agent_invoke` | Implemented | `str -> str` | Run a prompt through a configured command and parse its final output. |
+| `h_agent_stream` | Implemented | `str -> AsyncGenerator[str, None]` | Run a configured command and yield stdout chunks. |
+| `claude_invoke` | Implemented | `str -> str` | Apply Claude CLI defaults to the generic invocation path. |
+| `claude_stream` | Candidate | `str -> str` | Consume Claude stream-json events and return the final assistant text. |
+| `claude_via_hramp` | Candidate | `str -> str` | Dispatch a Claude CLI command through h-ramp without memory composition. |
+| `h_chat_cycle` | Candidate | typed chat input -> typed chat output | Read bounded history, call a configured NAT dispatcher, and persist the new turn. |
+| `h_claude_cycle` | Candidate | typed chat input -> typed chat output | Read bounded history, dispatch Claude through h-ramp, and persist the new turn. |
 
 The generic invocation configuration selects an execution target, command,
 arguments, prompt-delivery method (`arg`, `stdin`, or `env:VARNAME`), optional
@@ -107,4 +107,3 @@ The implementation should keep these concerns separate:
 
 This separation lets another CLI, parser, or dispatcher be added without
 changing the generic execution path or coupling one-shot invocation to memory.
-

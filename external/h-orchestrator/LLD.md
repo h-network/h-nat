@@ -1,236 +1,219 @@
 # h-orchestrator low-level design
 
-## Canonical status and scope
+## Document contract
 
-This is the canonical low-level document for the code currently present in
-`h-nat/external/h-orchestrator`.
+This is the canonical low-level description of the code currently in
+`external/h-orchestrator`. It is not an aspirational design. Changes to package
+layout, public Python helpers, NAT registrations, configuration, parser
+behavior, execution lifecycle, or tests must update this document in the same
+branch.
 
-At the time of writing, no `h-orchestrator` implementation has landed in
-`h-nat`; the directory contains only `.gitkeep`. Therefore there are currently
-no installed package, NAT registrations, runtime dependencies, configuration
-models, or executable code in this repository.
+`HLD.md` owns the durable module boundary and target public intent. This file
+owns the mechanisms that are implemented now.
 
-The remainder of this document records the verified predecessor baseline in
-`h-network-nemo-agent-toolkit/external/h-network-orchestrator`. It is the
-starting point to be ported and refactored, not a claim about code already
-available from `h-nat`. This document must be updated as implementation lands;
-implemented behavior then supersedes the baseline notes below.
+## Implementation status
 
-## Predecessor package baseline
+The first stateless execution slice is implemented. It contains an installable
+Python package, generic unary and streaming NAT functions, a Claude unary
+wrapper, two unary parsers, and transport-neutral unit tests.
 
-The predecessor is a Python 3.11-3.13 setuptools package named
-`h-network-orchestrator`. Its NAT component entry point is:
+The predecessor's `claude_stream`, `claude_via_hramp`, `h_chat_cycle`, and
+`h_claude_cycle` functions have not been ported. There is no Redis, `h-memory`,
+or h-ramp dependency in the implemented runtime path.
 
-```toml
-[project.entry-points."nat.components"]
-orchestrator = "nat.plugins.orchestrator.register"
-```
-
-It depends on the predecessor OpenShell communicator, memory, and h-ramp
-packages plus Redis. Its source package is
-`nat.plugins.orchestrator`, arranged as follows:
+## Package layout
 
 ```text
-orchestrator/
-├── register.py             # configs and primary NAT registrations
-├── core.py                 # generic invoke/stream lifecycle
-├── claude.py               # Claude stream-json helper
-├── parsers/
-│   ├── __init__.py         # built-ins and entry-point lookup
-│   ├── raw.py
-│   └── claude_json.py
-├── wrappers/
-│   └── claude.py           # claude_invoke specialization
-├── _cycle_common.py        # history, addressing, and h-ramp helpers
-├── chat_cycle.py           # generic memory-aware composite
-├── claude_cycle.py         # Claude/h-ramp memory-aware composite
-└── claude_via_hramp.py     # stateless h-ramp dispatcher
+external/h-orchestrator/
+├── HLD.md
+├── LLD.md
+├── README.md
+├── pyproject.toml
+├── src/nat/plugins/h_orchestrator/
+│   ├── __init__.py
+│   ├── core.py
+│   ├── register.py
+│   └── parsers/
+│       ├── __init__.py
+│       ├── raw.py
+│       └── claude_json.py
+└── tests/
+    ├── conftest.py
+    ├── test_core.py
+    ├── test_parsers.py
+    └── test_register.py
 ```
 
-Importing `register.py` registers its local functions, then imports the wrapper
-and composite modules for their registration side effects.
+The distribution is `h-orchestrator`, version `0.1.0`, supporting Python
+3.11-3.13. Runtime dependencies are `h-openshell`,
+`nvidia-nat-core>=1.8,<2`, and Pydantic 2. The namespace package is
+`nat.plugins.h_orchestrator`. Plugin-authoring symbols are imported from the
+stable `nat.plugin_api` facade.
 
-## Generic OpenShell invocation
+NAT loads `nat.plugins.h_orchestrator.register` through the `h_orchestrator`
+entry point in the `nat.plugins` group. The distribution also publishes its
+built-in parsers in `nat.orchestrator.output_parsers`.
 
-### Configuration
+## Public Python surface
 
-`AgentInvokeConfig` is strict (`extra="forbid"`) and contains:
+`nat.plugins.h_orchestrator` exports:
 
-- gateway connection: `gateway_home`, `endpoint`, and
-  `target_override="localhost"`;
-- execution: required `sandbox` and `command`, `args=[]`, and
-  `rpc_timeout_seconds=600.0`;
-- prompt delivery: `prompt_via="arg"`, constrained to `arg`, `stdin`, or
-  `env:VARNAME`;
-- prompt composition: optional static `context`;
-- output handling: `output_parser="raw"`.
+- `ParseResult`, the immutable normalized unary result;
+- `OutputParser`, the runtime-checkable unary parser protocol;
+- `build_script`, the quoted bash-script builder; and
+- `with_context`, the static-context prompt composer.
 
-`h_agent_stream` subclasses the same configuration. Although it accepts
-`output_parser`, the predecessor streaming implementation does not consult it;
-streaming is raw stdout only.
+NAT configuration and registration symbols remain available from
+`nat.plugins.h_orchestrator.register` but are not re-exported as the supported
+library surface.
 
-### Script construction
+## NAT registrations
 
-`build_script` emits a UTF-8 bash script beginning with `set -e`. Command,
-arguments, and prompt values are quoted with `shlex.quote`. The prompt is then:
+### `h_agent_invoke`
 
-- appended as the final argument;
-- placed in a single-quoted `__H_AGENT_PROMPT__` heredoc; or
-- exported through the validated environment-variable name.
+`AgentInvokeConfig` rejects unknown fields and contains:
 
-The core does not add a working-directory change or source an environment
-file. Callers that require such behavior must encode it in their command and
-arguments.
+- `gateway_home: str | None = None`;
+- `endpoint: str | None = None`;
+- `target_override: str = "localhost"`;
+- required non-empty `sandbox` and `command`;
+- `rpc_timeout_seconds: float = 600.0`, constrained above zero;
+- `args: list[str] = []`;
+- `prompt_via: str = "arg"`, restricted to `arg`, `stdin`, or a valid
+  `env:VARNAME` shape;
+- `context: str | None = None`; and
+- `output_parser: str = "raw"`.
 
-### Unary lifecycle
+The builder resolves the parser during workflow construction but does not read
+OpenShell configuration or open a client. The first invocation constructs
+`OpenShellClient.from_default_home`, optionally prepends static context, builds
+the script, and calls the parser. The reserved parser `step_manager` argument
+is currently `None`; intermediate-step internals are not part of the stable
+external plugin API.
+Successful parse text is returned unchanged. Parser failure currently returns
+`error_message` as data and emits a warning.
 
-`agent_invoke_builder` resolves the configured parser at workflow-build time
-but constructs `OpenShellClient` only on the first invocation. Each call:
+The client is closed in the builder's `finally` block if it was constructed.
 
-1. prepends static context with a two-newline separator, when configured;
-2. builds the bash script;
-3. calls `parser.consume(...)` with the client, sandbox, script, timeout, and
-   NAT intermediate-step manager;
-4. returns `ParseResult.text` on success or `error_message` on failure.
+### `h_agent_stream`
 
-The client is closed when NAT tears down the builder. There is no memory read
-or write in this path.
+`AgentStreamConfig` inherits the complete strict unary configuration. The
+builder constructs its client lazily, calls `exec_stream`, and:
 
-### Streaming lifecycle
+- yields UTF-8 replacement-decoded stdout payloads;
+- logs up to 300 characters of each decoded stderr payload;
+- records the exit payload; and
+- yields `[exit_code=N]` for a non-zero exit or
+  `[exit_code=missing]` if no terminal event arrives.
 
-`agent_stream_builder` also creates its client lazily. It calls
-`OpenShellClient.exec_stream`, yields decoded stdout payloads, logs stderr, and
-records the terminal exit code. A non-zero or missing terminal status produces
-a final `[exit_code=N]` chunk. The client is closed at teardown.
+The accepted `output_parser` field is not consulted on this path. Streaming is
+raw stdout only. The concrete nested return annotation is
+`AsyncGenerator[str, None]`, so `register.py` intentionally does not enable
+postponed evaluation of annotations.
 
-The dedicated predecessor `claude_stream` path is separate from this generic
-builder. It uses Claude `--output-format stream-json`, consumes events through
-`claude_invoke_stream`, and returns only the final successful result text. In
-contrast to the generic builders, it constructs its OpenShell client and runs
-`health()` while the workflow is built, then closes the client at teardown.
+### `claude_invoke`
 
-## Output parser contract
+`ClaudeInvokeConfig` inherits the unary config and supplies:
 
-`OutputParser` is a runtime-checkable protocol with a `streaming: bool`
-attribute and one async `consume(...) -> ParseResult` method. `ParseResult` is
-an immutable dataclass containing `text`, `ok`, optional parser-specific `raw`
-data, and `error_message`.
+- `command="claude"`;
+- positional prompt delivery;
+- `output_parser="claude_json"`; and
+- flags for print mode, disabled session persistence and slash commands, Bash
+  tools, bypass-permissions mode, and JSON output.
 
-The parser registry resolves an in-memory built-in first, then lazily searches
-the `nat.orchestrator.output_parsers` entry-point group and caches a matching
-class or instance. Unknown names raise `KeyError` with the known built-ins.
+When `hook_settings_path` is present, a Pydantic post-validator appends
+`--settings <path>` to the resolved argument list. The registration delegates
+to the same unary builder as `h_agent_invoke`.
 
-- `RawParser` executes through `OpenShellClient.exec`; exit code zero returns
-  stdout verbatim, while failure returns stderr or an exit-code fallback.
-- `ClaudeJsonParser` executes the same way, walks stdout backward for the last
-  JSON-object line, and succeeds only when the process exit is zero and the
-  envelope does not set `is_error`. It returns the envelope's `result` value
-  and retains the envelope in `ParseResult.raw`.
+## Script construction
 
-## Agent-specific wrappers and dispatchers
+`build_script` returns UTF-8 bytes beginning with `set -e`. The command and
+every argument are individually shell-quoted with `shlex.quote`.
 
-`ClaudeInvokeConfig` subclasses `AgentInvokeConfig` and supplies `command` as
-`claude`, positional prompt delivery, the `claude_json` parser, and stateless
-JSON-mode Claude flags. Optional `hook_settings_path` appends
-`--settings <path>` to the configured arguments. Its NAT builder delegates
-unchanged to `agent_invoke_builder`.
+- `arg` appends the quoted prompt as the final positional argument.
+- `stdin` sends the prompt through a single-quoted heredoc. The delimiter
+  starts as `__H_AGENT_PROMPT__` and gains a numeric suffix until it does not
+  equal any complete prompt line, preventing prompt-controlled early closure.
+- `env:VARNAME` exports the quoted prompt, validates the variable name again
+  defensively, and executes the command without a prompt argument.
 
-`claude_via_hramp` is a separate stateless `str -> str` dispatcher. Its strict
-config requires `rampd_target`, `peer_id`, and `claude_model`, with timeout,
-binary path, and flags configurable. A `FlockRouter` starts lazily on first
-call. The synchronous router iterator is drained on a worker thread; stdout is
-parsed as a trailing Claude JSON envelope. The router stops at teardown.
+Unknown delivery modes and invalid variable names raise `ValueError`. The
+function does not change directories, source environment files, or interpolate
+the prompt.
 
-The h-ramp helper returns bracketed error strings for `RampError`, non-zero
-exit, or a missing/error envelope. This error-as-data behavior is part of the
-predecessor baseline and requires an explicit compatibility decision during
-the public port.
+`with_context` returns the original prompt for blank context; otherwise it
+joins context and prompt with two newline characters.
 
-## Memory-aware composites
+## Unary parser protocol and registry
 
-The predecessor contains two typed composites:
+`OutputParser` requires `streaming: bool` and async
+`consume(client, sandbox, script, rpc_timeout, step_manager) -> ParseResult`.
+`ParseResult` contains `text`, `ok`, optional dictionary `raw`, and
+`error_message`.
 
-- `h_chat_cycle` delegates the model call to any configured NAT function with
-  a `str -> str` contract.
-- `h_claude_cycle` dispatches Claude directly through h-ramp.
+The registry loads built-ins into an in-memory dictionary. On a miss it scans
+the `nat.orchestrator.output_parsers` entry-point group, instantiates a loaded
+class when needed, verifies the runtime protocol, caches it, and returns it.
+Unknown names raise `KeyError` including the known parser names.
 
-Both accept a message plus optional per-request `chat_id`, `pod`, `agent`, and
-metadata. Addressing resolves per-request value first, then the configuration
-default, and errors if any axis is missing. `pod` and `agent` are restricted to
-alphanumeric, underscore, and hyphen tokens beginning with an alphanumeric
-character.
+`RawParser` calls collected OpenShell `exec` using `bash` with the generated
+script as stdin. Exit zero returns stdout verbatim. Non-zero exit returns
+stderr or an `exit_code=N` fallback.
 
-Each invocation lazily creates a Redis client, reads prior turns from the
-`<pod>:<agent>:chat-index:<chat_id>` sorted set and corresponding turn keys,
-orders them oldest first, and builds this prompt shape:
+`ClaudeJsonParser` performs the same execution and walks stdout lines backward
+for the last valid JSON object. It succeeds only when that object exists, the
+process exits zero, and `is_error` is false. On success it returns the
+envelope's `result` and retains the full object in `raw`. On failure it returns
+up to 500 characters of stripped stderr, then trailing stdout, then an exit
+code fallback.
 
-```text
-Previous conversation:
-[role] content
-...
+## Lifecycle, state, and concurrency
 
-Current message:
-<new message>
-```
+Each NAT builder closure owns at most one OpenShell client. Client creation is
+lazy and guarded by a per-builder `asyncio.Lock` with a second check inside the
+critical section, so concurrent first invocations share one client. Teardown is
+deterministic.
 
-After a successful dispatch, a per-request `BoundedBufferStore` writes the
-user and assistant turns with the configured TTL and hot-tier count bound. The
-typed output contains `result`, resolved `chat_id`, `prior_turn_count`,
-`duration_ms`, and the assistant `turn_id`. String and OpenAI Chat Completions
-converters adapt the typed input/output for CLI and API use; incoming chat
-requests use only the last user message because Redis is the history source of
-truth.
+Parser instances are cached globally. Implementations registered by third
+parties must therefore be safe for reuse across invocations and workflows.
 
-The two composites differ at dispatch:
+## Verification
 
-- `h_chat_cycle` lazily resolves `builder.get_function(dispatcher)` and invokes
-  it with the composed prompt. A raised dispatcher exception becomes a typed
-  error result and is not persisted.
-- `h_claude_cycle` lazily starts `FlockRouter`, uses the shared Claude h-ramp
-  helper, and does not persist its own bracketed error results.
+The unit suite runs without NAT or a live OpenShell gateway because it imports
+only the transport-neutral core and parsers and uses a fake collected-exec
+client. It verifies:
 
-Redis clients and routers are closed or stopped during builder teardown.
+- static-context composition;
+- shell quoting for command, arguments, and prompt;
+- collision-free heredoc selection;
+- defensive prompt-delivery validation;
+- raw parser success/failure and OpenShell call shape;
+- Claude trailing-envelope selection and malformed output failure; and
+- built-in parser discovery and unknown-name errors;
+- strict configuration and Claude wrapper defaults;
+- lazy client construction, concurrent first-call sharing, and teardown; and
+- missing streaming terminal-event reporting.
 
-## Concurrency and state
+A real NAT loader/discovery smoke and full stream event matrix still require an
+environment with `nvidia-nat-core` and `h-openshell` installed.
 
-Infrastructure clients are held in mutable dictionaries captured by NAT
-function closures and initialized on first use. The predecessor does not guard
-initialization with a lock, so simultaneous first calls could construct more
-than one client or router. This should be reviewed during the port. Per-request
-addressing and `BoundedBufferStore` construction otherwise avoid binding one
-composite instance to a single tenant.
+## Disagreements and remaining baseline work
 
-## Disagreements and transition notes
-
-This section records where current `h-nat` state, the intended HLD, and the
-predecessor documentation differ.
-
-1. **No current implementation:** the HLD describes the target architecture,
-   while current `h-nat` contains only `.gitkeep`. None of the functions above
-   are presently available from this repository.
-2. **Names and package paths:** the predecessor package and imports use
-   `h-network-*` distribution names and `nat.plugins.h_network_*` modules.
-   Public `h-nat` names and import paths must be selected and implemented; they
-   must not be inferred from this baseline document.
-3. **README scope:** the root `h-nat` README summarizes `h-orchestrator` as
-   invoking or streaming a coding-agent CLI. The predecessor additionally
-   contains Redis-backed chat-cycle composites and an h-ramp transport path.
-   Their inclusion in the public module remains a port decision.
-4. **Predecessor README registration list:** it says the plugin adds three NAT
-   functions and its layout omits newer modules, but the inspected predecessor
-   code registers seven functions: `h_agent_invoke`, `h_agent_stream`,
-   `claude_invoke`, `claude_stream`, `claude_via_hramp`, `h_chat_cycle`, and
-   `h_claude_cycle`. This LLD follows code, not that stale summary.
-5. **Memory boundary wording:** predecessor prose broadly says memory
-   composition is the consumer's job. That is accurate for invoke/stream
-   primitives, but the later `h_chat_cycle` and `h_claude_cycle` code composes
-   Redis memory internally. The HLD and this LLD distinguish those layers.
-6. **Streaming parser claims:** parser comments discuss future streaming parser
-   variants, but the inspected registry contains only `raw` and `claude_json`,
-   and `h_agent_stream` bypasses the parser registry. The LLD records the
-   implemented behavior rather than the comments' planned behavior.
-7. **Lazy-build consistency:** the generic invocation builders and composite
-   clients initialize lazily, but the separate `claude_stream` registration
-   constructs a client and checks gateway health at build time. The target HLD
-   calls for lazy infrastructure initialization; the port must reconcile this
-   exception.
+1. The HLD lists four predecessor functions as candidates; they are not
+   implemented and are not registered by this package.
+2. The root `h-nat` README's invoke/stream summary matches the implemented
+   first slice. Redis-backed cycles described in the HLD remain target scope.
+3. The predecessor generic stdin path used a fixed heredoc delimiter. Current
+   code selects a collision-free delimiter, closing a prompt-integrity edge
+   case rather than preserving the predecessor behavior.
+4. The predecessor used package/import names beginning `h-network-` and
+   `nat.plugins.orchestrator`. Current code uses the public distribution name
+   `h-orchestrator` and namespace `nat.plugins.h_orchestrator`.
+5. The predecessor dedicated `claude_stream` performed eager gateway health
+   checking. It has not been ported; all implemented clients initialize lazily.
+6. Unary failure and h-agent stream failure remain error-as-data for baseline
+   compatibility. The HLD calls for an explicit final failure contract before
+   the public interface is declared stable.
+7. The predecessor parser comments proposed streaming parser variants, but
+   neither predecessor nor current code implements them. The current streaming
+   path explicitly bypasses the unary registry.
