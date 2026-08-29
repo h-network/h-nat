@@ -1,0 +1,49 @@
+# Round 38 build-check workflow YAML — verification artifact, not a
+# shipped example. Exercised by ``_verify/check.py`` via NAT's
+# ``WorkflowBuilder.from_config`` without invoking any function. No
+# Redis touched (the builders are lazy by design — see
+# ``register.py`` § "lazy-builder posture").
+#
+# All three ``_type:``s declared so a single config exercises every
+# builder. The top-level ``workflow`` reuses the search builder; the
+# Python harness in ``check.py`` only calls ``builder.get_function(...)``
+# (no invocation), so the ``workflow`` choice is arbitrary.
+
+general:
+  use_uvloop: true
+
+# redis_url points at a deliberately unreachable port (``:1``, always
+# refused) so the build check positively demonstrates the lazy-builder
+# posture from announcement § 3 — every builder constructs the redis
+# client and the embedder wrapper *without* opening a TCP connection
+# or loading the model. If any builder snuck in an eager ``ping()`` or
+# ``embed()``, this YAML would fail to build.
+
+functions:
+  search:
+    _type: h_semantic_search
+    redis_url: redis://127.0.0.1:1
+    pod: r38-pod
+    agent: r38-agent
+
+  sweep:
+    _type: h_semantic_sweep
+    redis_url: redis://127.0.0.1:1
+    pod: r38-pod
+    agent: r38-agent
+    migration_threshold_sec: 60
+    max_per_cycle: 0
+
+  vectorize:
+    _type: h_semantic_vectorize
+    redis_url: redis://127.0.0.1:1
+    pod: r38-pod
+    agent: r38-agent
+    batch_size: 32
+    max_per_cycle: 0
+
+workflow:
+  _type: h_semantic_search
+  redis_url: redis://127.0.0.1:1
+  pod: r38-pod
+  agent: r38-agent
