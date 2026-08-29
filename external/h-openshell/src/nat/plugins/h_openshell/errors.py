@@ -34,5 +34,9 @@ class SandboxLifecycleError(OpenShellError):
     """A sandbox entered a terminal error phase."""
 
 
+class SandboxNameError(ValueError, OpenShellError):
+    """A requested sandbox name violates the gateway's routable-name rules."""
+
+
 class SandboxTimeoutError(TimeoutError, OpenShellError):
     """A sandbox did not reach the requested state before its deadline."""

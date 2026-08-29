@@ -28,6 +28,16 @@ class OpenShellStub(object):
                 request_serializer=openshell__pb2.HealthRequest.SerializeToString,
                 response_deserializer=openshell__pb2.HealthResponse.FromString,
                 )
+        self.GetCurrentUser = channel.unary_unary(
+                '/openshell.v1.OpenShell/GetCurrentUser',
+                request_serializer=openshell__pb2.GetCurrentUserRequest.SerializeToString,
+                response_deserializer=openshell__pb2.GetCurrentUserResponse.FromString,
+                )
+        self.GetGatewayInfo = channel.unary_unary(
+                '/openshell.v1.OpenShell/GetGatewayInfo',
+                request_serializer=openshell__pb2.GetGatewayInfoRequest.SerializeToString,
+                response_deserializer=openshell__pb2.GetGatewayInfoResponse.FromString,
+                )
         self.CreateSandbox = channel.unary_unary(
                 '/openshell.v1.OpenShell/CreateSandbox',
                 request_serializer=openshell__pb2.CreateSandboxRequest.SerializeToString,
@@ -43,15 +53,60 @@ class OpenShellStub(object):
                 request_serializer=openshell__pb2.ListSandboxesRequest.SerializeToString,
                 response_deserializer=openshell__pb2.ListSandboxesResponse.FromString,
                 )
+        self.ListSandboxProviders = channel.unary_unary(
+                '/openshell.v1.OpenShell/ListSandboxProviders',
+                request_serializer=openshell__pb2.ListSandboxProvidersRequest.SerializeToString,
+                response_deserializer=openshell__pb2.ListSandboxProvidersResponse.FromString,
+                )
+        self.AttachSandboxProvider = channel.unary_unary(
+                '/openshell.v1.OpenShell/AttachSandboxProvider',
+                request_serializer=openshell__pb2.AttachSandboxProviderRequest.SerializeToString,
+                response_deserializer=openshell__pb2.AttachSandboxProviderResponse.FromString,
+                )
+        self.DetachSandboxProvider = channel.unary_unary(
+                '/openshell.v1.OpenShell/DetachSandboxProvider',
+                request_serializer=openshell__pb2.DetachSandboxProviderRequest.SerializeToString,
+                response_deserializer=openshell__pb2.DetachSandboxProviderResponse.FromString,
+                )
         self.DeleteSandbox = channel.unary_unary(
                 '/openshell.v1.OpenShell/DeleteSandbox',
                 request_serializer=openshell__pb2.DeleteSandboxRequest.SerializeToString,
                 response_deserializer=openshell__pb2.DeleteSandboxResponse.FromString,
                 )
+        self.StopSandbox = channel.unary_unary(
+                '/openshell.v1.OpenShell/StopSandbox',
+                request_serializer=openshell__pb2.StopSandboxRequest.SerializeToString,
+                response_deserializer=openshell__pb2.SandboxResponse.FromString,
+                )
+        self.StartSandbox = channel.unary_unary(
+                '/openshell.v1.OpenShell/StartSandbox',
+                request_serializer=openshell__pb2.StartSandboxRequest.SerializeToString,
+                response_deserializer=openshell__pb2.SandboxResponse.FromString,
+                )
         self.CreateSshSession = channel.unary_unary(
                 '/openshell.v1.OpenShell/CreateSshSession',
                 request_serializer=openshell__pb2.CreateSshSessionRequest.SerializeToString,
                 response_deserializer=openshell__pb2.CreateSshSessionResponse.FromString,
+                )
+        self.ExposeService = channel.unary_unary(
+                '/openshell.v1.OpenShell/ExposeService',
+                request_serializer=openshell__pb2.ExposeServiceRequest.SerializeToString,
+                response_deserializer=openshell__pb2.ServiceEndpointResponse.FromString,
+                )
+        self.GetService = channel.unary_unary(
+                '/openshell.v1.OpenShell/GetService',
+                request_serializer=openshell__pb2.GetServiceRequest.SerializeToString,
+                response_deserializer=openshell__pb2.ServiceEndpointResponse.FromString,
+                )
+        self.ListServices = channel.unary_unary(
+                '/openshell.v1.OpenShell/ListServices',
+                request_serializer=openshell__pb2.ListServicesRequest.SerializeToString,
+                response_deserializer=openshell__pb2.ListServicesResponse.FromString,
+                )
+        self.DeleteService = channel.unary_unary(
+                '/openshell.v1.OpenShell/DeleteService',
+                request_serializer=openshell__pb2.DeleteServiceRequest.SerializeToString,
+                response_deserializer=openshell__pb2.DeleteServiceResponse.FromString,
                 )
         self.RevokeSshSession = channel.unary_unary(
                 '/openshell.v1.OpenShell/RevokeSshSession',
@@ -61,6 +116,16 @@ class OpenShellStub(object):
         self.ExecSandbox = channel.unary_stream(
                 '/openshell.v1.OpenShell/ExecSandbox',
                 request_serializer=openshell__pb2.ExecSandboxRequest.SerializeToString,
+                response_deserializer=openshell__pb2.ExecSandboxEvent.FromString,
+                )
+        self.ForwardTcp = channel.stream_stream(
+                '/openshell.v1.OpenShell/ForwardTcp',
+                request_serializer=openshell__pb2.TcpForwardFrame.SerializeToString,
+                response_deserializer=openshell__pb2.TcpForwardFrame.FromString,
+                )
+        self.ExecSandboxInteractive = channel.stream_stream(
+                '/openshell.v1.OpenShell/ExecSandboxInteractive',
+                request_serializer=openshell__pb2.ExecSandboxInput.SerializeToString,
                 response_deserializer=openshell__pb2.ExecSandboxEvent.FromString,
                 )
         self.CreateProvider = channel.unary_unary(
@@ -78,15 +143,65 @@ class OpenShellStub(object):
                 request_serializer=openshell__pb2.ListProvidersRequest.SerializeToString,
                 response_deserializer=openshell__pb2.ListProvidersResponse.FromString,
                 )
+        self.ListProviderProfiles = channel.unary_unary(
+                '/openshell.v1.OpenShell/ListProviderProfiles',
+                request_serializer=openshell__pb2.ListProviderProfilesRequest.SerializeToString,
+                response_deserializer=openshell__pb2.ListProviderProfilesResponse.FromString,
+                )
+        self.GetProviderProfile = channel.unary_unary(
+                '/openshell.v1.OpenShell/GetProviderProfile',
+                request_serializer=openshell__pb2.GetProviderProfileRequest.SerializeToString,
+                response_deserializer=openshell__pb2.ProviderProfileResponse.FromString,
+                )
+        self.ImportProviderProfiles = channel.unary_unary(
+                '/openshell.v1.OpenShell/ImportProviderProfiles',
+                request_serializer=openshell__pb2.ImportProviderProfilesRequest.SerializeToString,
+                response_deserializer=openshell__pb2.ImportProviderProfilesResponse.FromString,
+                )
+        self.UpdateProviderProfiles = channel.unary_unary(
+                '/openshell.v1.OpenShell/UpdateProviderProfiles',
+                request_serializer=openshell__pb2.UpdateProviderProfilesRequest.SerializeToString,
+                response_deserializer=openshell__pb2.UpdateProviderProfilesResponse.FromString,
+                )
+        self.LintProviderProfiles = channel.unary_unary(
+                '/openshell.v1.OpenShell/LintProviderProfiles',
+                request_serializer=openshell__pb2.LintProviderProfilesRequest.SerializeToString,
+                response_deserializer=openshell__pb2.LintProviderProfilesResponse.FromString,
+                )
         self.UpdateProvider = channel.unary_unary(
                 '/openshell.v1.OpenShell/UpdateProvider',
                 request_serializer=openshell__pb2.UpdateProviderRequest.SerializeToString,
                 response_deserializer=openshell__pb2.ProviderResponse.FromString,
                 )
+        self.GetProviderRefreshStatus = channel.unary_unary(
+                '/openshell.v1.OpenShell/GetProviderRefreshStatus',
+                request_serializer=openshell__pb2.GetProviderRefreshStatusRequest.SerializeToString,
+                response_deserializer=openshell__pb2.GetProviderRefreshStatusResponse.FromString,
+                )
+        self.ConfigureProviderRefresh = channel.unary_unary(
+                '/openshell.v1.OpenShell/ConfigureProviderRefresh',
+                request_serializer=openshell__pb2.ConfigureProviderRefreshRequest.SerializeToString,
+                response_deserializer=openshell__pb2.ConfigureProviderRefreshResponse.FromString,
+                )
+        self.RotateProviderCredential = channel.unary_unary(
+                '/openshell.v1.OpenShell/RotateProviderCredential',
+                request_serializer=openshell__pb2.RotateProviderCredentialRequest.SerializeToString,
+                response_deserializer=openshell__pb2.RotateProviderCredentialResponse.FromString,
+                )
+        self.DeleteProviderRefresh = channel.unary_unary(
+                '/openshell.v1.OpenShell/DeleteProviderRefresh',
+                request_serializer=openshell__pb2.DeleteProviderRefreshRequest.SerializeToString,
+                response_deserializer=openshell__pb2.DeleteProviderRefreshResponse.FromString,
+                )
         self.DeleteProvider = channel.unary_unary(
                 '/openshell.v1.OpenShell/DeleteProvider',
                 request_serializer=openshell__pb2.DeleteProviderRequest.SerializeToString,
                 response_deserializer=openshell__pb2.DeleteProviderResponse.FromString,
+                )
+        self.DeleteProviderProfile = channel.unary_unary(
+                '/openshell.v1.OpenShell/DeleteProviderProfile',
+                request_serializer=openshell__pb2.DeleteProviderProfileRequest.SerializeToString,
+                response_deserializer=openshell__pb2.DeleteProviderProfileResponse.FromString,
                 )
         self.GetSandboxConfig = channel.unary_unary(
                 '/openshell.v1.OpenShell/GetSandboxConfig',
@@ -123,6 +238,11 @@ class OpenShellStub(object):
                 request_serializer=openshell__pb2.GetSandboxProviderEnvironmentRequest.SerializeToString,
                 response_deserializer=openshell__pb2.GetSandboxProviderEnvironmentResponse.FromString,
                 )
+        self.ExchangeProviderSubjectToken = channel.unary_unary(
+                '/openshell.v1.OpenShell/ExchangeProviderSubjectToken',
+                request_serializer=openshell__pb2.ExchangeProviderSubjectTokenRequest.SerializeToString,
+                response_deserializer=openshell__pb2.ExchangeProviderSubjectTokenResponse.FromString,
+                )
         self.GetSandboxLogs = channel.unary_unary(
                 '/openshell.v1.OpenShell/GetSandboxLogs',
                 request_serializer=openshell__pb2.GetSandboxLogsRequest.SerializeToString,
@@ -137,6 +257,11 @@ class OpenShellStub(object):
                 '/openshell.v1.OpenShell/ConnectSupervisor',
                 request_serializer=openshell__pb2.SupervisorMessage.SerializeToString,
                 response_deserializer=openshell__pb2.GatewayMessage.FromString,
+                )
+        self.ReportMainProcessExit = channel.unary_unary(
+                '/openshell.v1.OpenShell/ReportMainProcessExit',
+                request_serializer=openshell__pb2.ReportMainProcessExitRequest.SerializeToString,
+                response_deserializer=openshell__pb2.ReportMainProcessExitResponse.FromString,
                 )
         self.RelayStream = channel.stream_stream(
                 '/openshell.v1.OpenShell/RelayStream',
@@ -193,6 +318,51 @@ class OpenShellStub(object):
                 request_serializer=openshell__pb2.GetDraftHistoryRequest.SerializeToString,
                 response_deserializer=openshell__pb2.GetDraftHistoryResponse.FromString,
                 )
+        self.IssueSandboxToken = channel.unary_unary(
+                '/openshell.v1.OpenShell/IssueSandboxToken',
+                request_serializer=openshell__pb2.IssueSandboxTokenRequest.SerializeToString,
+                response_deserializer=openshell__pb2.IssueSandboxTokenResponse.FromString,
+                )
+        self.RefreshSandboxToken = channel.unary_unary(
+                '/openshell.v1.OpenShell/RefreshSandboxToken',
+                request_serializer=openshell__pb2.RefreshSandboxTokenRequest.SerializeToString,
+                response_deserializer=openshell__pb2.RefreshSandboxTokenResponse.FromString,
+                )
+        self.CreateWorkspace = channel.unary_unary(
+                '/openshell.v1.OpenShell/CreateWorkspace',
+                request_serializer=openshell__pb2.CreateWorkspaceRequest.SerializeToString,
+                response_deserializer=openshell__pb2.CreateWorkspaceResponse.FromString,
+                )
+        self.GetWorkspace = channel.unary_unary(
+                '/openshell.v1.OpenShell/GetWorkspace',
+                request_serializer=openshell__pb2.GetWorkspaceRequest.SerializeToString,
+                response_deserializer=openshell__pb2.GetWorkspaceResponse.FromString,
+                )
+        self.ListWorkspaces = channel.unary_unary(
+                '/openshell.v1.OpenShell/ListWorkspaces',
+                request_serializer=openshell__pb2.ListWorkspacesRequest.SerializeToString,
+                response_deserializer=openshell__pb2.ListWorkspacesResponse.FromString,
+                )
+        self.DeleteWorkspace = channel.unary_unary(
+                '/openshell.v1.OpenShell/DeleteWorkspace',
+                request_serializer=openshell__pb2.DeleteWorkspaceRequest.SerializeToString,
+                response_deserializer=openshell__pb2.DeleteWorkspaceResponse.FromString,
+                )
+        self.AddWorkspaceMember = channel.unary_unary(
+                '/openshell.v1.OpenShell/AddWorkspaceMember',
+                request_serializer=openshell__pb2.AddWorkspaceMemberRequest.SerializeToString,
+                response_deserializer=openshell__pb2.AddWorkspaceMemberResponse.FromString,
+                )
+        self.RemoveWorkspaceMember = channel.unary_unary(
+                '/openshell.v1.OpenShell/RemoveWorkspaceMember',
+                request_serializer=openshell__pb2.RemoveWorkspaceMemberRequest.SerializeToString,
+                response_deserializer=openshell__pb2.RemoveWorkspaceMemberResponse.FromString,
+                )
+        self.ListWorkspaceMembers = channel.unary_unary(
+                '/openshell.v1.OpenShell/ListWorkspaceMembers',
+                request_serializer=openshell__pb2.ListWorkspaceMembersRequest.SerializeToString,
+                response_deserializer=openshell__pb2.ListWorkspaceMembersResponse.FromString,
+                )
 
 
 class OpenShellServicer(object):
@@ -208,6 +378,20 @@ class OpenShellServicer(object):
 
     def Health(self, request, context):
         """Check the health of the service.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetCurrentUser(self, request, context):
+        """Return the authenticated caller identity established by the gateway.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetGatewayInfo(self, request, context):
+        """Fetch elevated live gateway runtime metadata.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -234,6 +418,27 @@ class OpenShellServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListSandboxProviders(self, request, context):
+        """List provider records attached to a sandbox.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AttachSandboxProvider(self, request, context):
+        """Attach a provider record to an existing sandbox.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DetachSandboxProvider(self, request, context):
+        """Detach a provider record from an existing sandbox.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def DeleteSandbox(self, request, context):
         """Delete a sandbox by name.
         """
@@ -241,8 +446,50 @@ class OpenShellServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def StopSandbox(self, request, context):
+        """Stop a sandbox while retaining its persistent state.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StartSandbox(self, request, context):
+        """Start a previously stopped sandbox.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def CreateSshSession(self, request, context):
         """Create a short-lived SSH session for a sandbox.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ExposeService(self, request, context):
+        """Create or update a sandbox HTTP service endpoint for local routing.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetService(self, request, context):
+        """Fetch one sandbox HTTP service endpoint.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListServices(self, request, context):
+        """List sandbox HTTP service endpoints.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteService(self, request, context):
+        """Delete one sandbox HTTP service endpoint.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -257,6 +504,22 @@ class OpenShellServicer(object):
 
     def ExecSandbox(self, request, context):
         """Execute a command in a ready sandbox and stream output.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ForwardTcp(self, request_iterator, context):
+        """Forward one CLI-side TCP connection to a loopback TCP target in a sandbox.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ExecSandboxInteractive(self, request_iterator, context):
+        """Execute an interactive command with bidirectional stdin/stdout streaming.
+        The first client message MUST carry an ExecSandboxInput with the start
+        variant. Subsequent messages carry stdin bytes or window resize events.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -283,6 +546,41 @@ class OpenShellServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListProviderProfiles(self, request, context):
+        """List available provider type profiles.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetProviderProfile(self, request, context):
+        """Fetch one provider type profile by id.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ImportProviderProfiles(self, request, context):
+        """Import custom provider type profiles.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpdateProviderProfiles(self, request, context):
+        """Update an existing custom provider type profile.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def LintProviderProfiles(self, request, context):
+        """Validate provider type profiles without registering them.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def UpdateProvider(self, request, context):
         """Update an existing provider by name.
         """
@@ -290,8 +588,43 @@ class OpenShellServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetProviderRefreshStatus(self, request, context):
+        """Fetch refresh status for one provider or provider credential.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ConfigureProviderRefresh(self, request, context):
+        """Configure gateway-owned refresh material for one provider credential.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RotateProviderCredential(self, request, context):
+        """Record a gateway-owned refresh request for one provider credential.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteProviderRefresh(self, request, context):
+        """Delete gateway-owned refresh configuration for one provider credential.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def DeleteProvider(self, request, context):
         """Delete a provider by name.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteProviderProfile(self, request, context):
+        """Delete a custom provider type profile by id.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -305,7 +638,14 @@ class OpenShellServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def GetGatewayConfig(self, request, context):
-        """Get gateway-global settings.
+        """Get gateway-global settings (read-only feature flags; any authenticated
+        user may read these so the CLI and TUI can discover capabilities like
+        providers_v2_enabled without requiring Platform Admin).
+
+        Scope-only (no role): scopes are granted by the IdP at token issuance,
+        orthogonal to workspace membership. Deployments that enable scope
+        enforcement configure the IdP to grant config:read (or openshell:all)
+        to all sandbox users, so this does not block least-privilege flows.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -346,6 +686,14 @@ class OpenShellServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ExchangeProviderSubjectToken(self, request, context):
+        """Exchange a stored provider subject token for an intermediate token scoped
+        to the calling supervisor's SPIFFE identity.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetSandboxLogs(self, request, context):
         """Fetch recent sandbox logs (one-shot).
         """
@@ -365,8 +713,16 @@ class OpenShellServicer(object):
 
         The supervisor opens this stream at startup and keeps it alive for the
         sandbox lifetime. The gateway uses it to coordinate relay channels for
-        SSH connect and ExecSandbox. Raw SSH bytes flow over RelayStream calls
-        (separate HTTP/2 streams on the same connection), not over this stream.
+        SSH connect, ExecSandbox, and targetable sandbox services. Raw service
+        bytes flow over RelayStream calls (separate HTTP/2 streams on the same
+        connection), not over this stream.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ReportMainProcessExit(self, request, context):
+        """Persist the canonical main process result before the supervisor exits.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -379,8 +735,8 @@ class OpenShellServicer(object):
         on its ConnectSupervisor stream. The first RelayFrame carries a
         RelayInit with the channel_id to associate the new HTTP/2 stream with
         the pending relay slot on the gateway. Subsequent frames carry raw bytes in either
-        direction between the gateway-side waiter (ssh_tunnel / exec handler)
-        and the supervisor-side local SSH daemon bridge.
+        direction between the gateway-side waiter (ForwardTcp / exec handler)
+        and the supervisor-side target bridge.
 
         This rides the same TCP+TLS+HTTP/2 connection as ConnectSupervisor —
         no new TLS handshake, no reverse HTTP CONNECT.
@@ -468,6 +824,82 @@ class OpenShellServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def IssueSandboxToken(self, request, context):
+        """Exchange a sandbox-bootstrap credential (e.g. a Kubernetes projected
+        ServiceAccount token) for a gateway-minted JWT bound to the calling
+        sandbox's UUID. Used by the Kubernetes driver path; singleplayer
+        drivers receive the gateway JWT directly from the create-sandbox flow
+        and never call this RPC.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RefreshSandboxToken(self, request, context):
+        """Renew the calling sandbox's gateway JWT. Older tokens remain valid
+        until their own expiry; deployments should keep token TTLs short to
+        bound replay exposure. The supervisor calls this from a background
+        task at ~80% of the token's lifetime; the new token is cached in
+        memory only — the on-disk bootstrap file is intentionally not
+        rewritten.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CreateWorkspace(self, request, context):
+        """---------------------------------------------------------------------------
+        Workspace management RPCs
+        ---------------------------------------------------------------------------
+
+        Create a workspace.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetWorkspace(self, request, context):
+        """Fetch a workspace by name.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListWorkspaces(self, request, context):
+        """List workspaces.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteWorkspace(self, request, context):
+        """Delete a workspace by name.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AddWorkspaceMember(self, request, context):
+        """Add a member to a workspace.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RemoveWorkspaceMember(self, request, context):
+        """Remove a member from a workspace.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListWorkspaceMembers(self, request, context):
+        """List members of a workspace.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_OpenShellServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -475,6 +907,16 @@ def add_OpenShellServicer_to_server(servicer, server):
                     servicer.Health,
                     request_deserializer=openshell__pb2.HealthRequest.FromString,
                     response_serializer=openshell__pb2.HealthResponse.SerializeToString,
+            ),
+            'GetCurrentUser': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetCurrentUser,
+                    request_deserializer=openshell__pb2.GetCurrentUserRequest.FromString,
+                    response_serializer=openshell__pb2.GetCurrentUserResponse.SerializeToString,
+            ),
+            'GetGatewayInfo': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetGatewayInfo,
+                    request_deserializer=openshell__pb2.GetGatewayInfoRequest.FromString,
+                    response_serializer=openshell__pb2.GetGatewayInfoResponse.SerializeToString,
             ),
             'CreateSandbox': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateSandbox,
@@ -491,15 +933,60 @@ def add_OpenShellServicer_to_server(servicer, server):
                     request_deserializer=openshell__pb2.ListSandboxesRequest.FromString,
                     response_serializer=openshell__pb2.ListSandboxesResponse.SerializeToString,
             ),
+            'ListSandboxProviders': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListSandboxProviders,
+                    request_deserializer=openshell__pb2.ListSandboxProvidersRequest.FromString,
+                    response_serializer=openshell__pb2.ListSandboxProvidersResponse.SerializeToString,
+            ),
+            'AttachSandboxProvider': grpc.unary_unary_rpc_method_handler(
+                    servicer.AttachSandboxProvider,
+                    request_deserializer=openshell__pb2.AttachSandboxProviderRequest.FromString,
+                    response_serializer=openshell__pb2.AttachSandboxProviderResponse.SerializeToString,
+            ),
+            'DetachSandboxProvider': grpc.unary_unary_rpc_method_handler(
+                    servicer.DetachSandboxProvider,
+                    request_deserializer=openshell__pb2.DetachSandboxProviderRequest.FromString,
+                    response_serializer=openshell__pb2.DetachSandboxProviderResponse.SerializeToString,
+            ),
             'DeleteSandbox': grpc.unary_unary_rpc_method_handler(
                     servicer.DeleteSandbox,
                     request_deserializer=openshell__pb2.DeleteSandboxRequest.FromString,
                     response_serializer=openshell__pb2.DeleteSandboxResponse.SerializeToString,
             ),
+            'StopSandbox': grpc.unary_unary_rpc_method_handler(
+                    servicer.StopSandbox,
+                    request_deserializer=openshell__pb2.StopSandboxRequest.FromString,
+                    response_serializer=openshell__pb2.SandboxResponse.SerializeToString,
+            ),
+            'StartSandbox': grpc.unary_unary_rpc_method_handler(
+                    servicer.StartSandbox,
+                    request_deserializer=openshell__pb2.StartSandboxRequest.FromString,
+                    response_serializer=openshell__pb2.SandboxResponse.SerializeToString,
+            ),
             'CreateSshSession': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateSshSession,
                     request_deserializer=openshell__pb2.CreateSshSessionRequest.FromString,
                     response_serializer=openshell__pb2.CreateSshSessionResponse.SerializeToString,
+            ),
+            'ExposeService': grpc.unary_unary_rpc_method_handler(
+                    servicer.ExposeService,
+                    request_deserializer=openshell__pb2.ExposeServiceRequest.FromString,
+                    response_serializer=openshell__pb2.ServiceEndpointResponse.SerializeToString,
+            ),
+            'GetService': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetService,
+                    request_deserializer=openshell__pb2.GetServiceRequest.FromString,
+                    response_serializer=openshell__pb2.ServiceEndpointResponse.SerializeToString,
+            ),
+            'ListServices': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListServices,
+                    request_deserializer=openshell__pb2.ListServicesRequest.FromString,
+                    response_serializer=openshell__pb2.ListServicesResponse.SerializeToString,
+            ),
+            'DeleteService': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteService,
+                    request_deserializer=openshell__pb2.DeleteServiceRequest.FromString,
+                    response_serializer=openshell__pb2.DeleteServiceResponse.SerializeToString,
             ),
             'RevokeSshSession': grpc.unary_unary_rpc_method_handler(
                     servicer.RevokeSshSession,
@@ -509,6 +996,16 @@ def add_OpenShellServicer_to_server(servicer, server):
             'ExecSandbox': grpc.unary_stream_rpc_method_handler(
                     servicer.ExecSandbox,
                     request_deserializer=openshell__pb2.ExecSandboxRequest.FromString,
+                    response_serializer=openshell__pb2.ExecSandboxEvent.SerializeToString,
+            ),
+            'ForwardTcp': grpc.stream_stream_rpc_method_handler(
+                    servicer.ForwardTcp,
+                    request_deserializer=openshell__pb2.TcpForwardFrame.FromString,
+                    response_serializer=openshell__pb2.TcpForwardFrame.SerializeToString,
+            ),
+            'ExecSandboxInteractive': grpc.stream_stream_rpc_method_handler(
+                    servicer.ExecSandboxInteractive,
+                    request_deserializer=openshell__pb2.ExecSandboxInput.FromString,
                     response_serializer=openshell__pb2.ExecSandboxEvent.SerializeToString,
             ),
             'CreateProvider': grpc.unary_unary_rpc_method_handler(
@@ -526,15 +1023,65 @@ def add_OpenShellServicer_to_server(servicer, server):
                     request_deserializer=openshell__pb2.ListProvidersRequest.FromString,
                     response_serializer=openshell__pb2.ListProvidersResponse.SerializeToString,
             ),
+            'ListProviderProfiles': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListProviderProfiles,
+                    request_deserializer=openshell__pb2.ListProviderProfilesRequest.FromString,
+                    response_serializer=openshell__pb2.ListProviderProfilesResponse.SerializeToString,
+            ),
+            'GetProviderProfile': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetProviderProfile,
+                    request_deserializer=openshell__pb2.GetProviderProfileRequest.FromString,
+                    response_serializer=openshell__pb2.ProviderProfileResponse.SerializeToString,
+            ),
+            'ImportProviderProfiles': grpc.unary_unary_rpc_method_handler(
+                    servicer.ImportProviderProfiles,
+                    request_deserializer=openshell__pb2.ImportProviderProfilesRequest.FromString,
+                    response_serializer=openshell__pb2.ImportProviderProfilesResponse.SerializeToString,
+            ),
+            'UpdateProviderProfiles': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateProviderProfiles,
+                    request_deserializer=openshell__pb2.UpdateProviderProfilesRequest.FromString,
+                    response_serializer=openshell__pb2.UpdateProviderProfilesResponse.SerializeToString,
+            ),
+            'LintProviderProfiles': grpc.unary_unary_rpc_method_handler(
+                    servicer.LintProviderProfiles,
+                    request_deserializer=openshell__pb2.LintProviderProfilesRequest.FromString,
+                    response_serializer=openshell__pb2.LintProviderProfilesResponse.SerializeToString,
+            ),
             'UpdateProvider': grpc.unary_unary_rpc_method_handler(
                     servicer.UpdateProvider,
                     request_deserializer=openshell__pb2.UpdateProviderRequest.FromString,
                     response_serializer=openshell__pb2.ProviderResponse.SerializeToString,
             ),
+            'GetProviderRefreshStatus': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetProviderRefreshStatus,
+                    request_deserializer=openshell__pb2.GetProviderRefreshStatusRequest.FromString,
+                    response_serializer=openshell__pb2.GetProviderRefreshStatusResponse.SerializeToString,
+            ),
+            'ConfigureProviderRefresh': grpc.unary_unary_rpc_method_handler(
+                    servicer.ConfigureProviderRefresh,
+                    request_deserializer=openshell__pb2.ConfigureProviderRefreshRequest.FromString,
+                    response_serializer=openshell__pb2.ConfigureProviderRefreshResponse.SerializeToString,
+            ),
+            'RotateProviderCredential': grpc.unary_unary_rpc_method_handler(
+                    servicer.RotateProviderCredential,
+                    request_deserializer=openshell__pb2.RotateProviderCredentialRequest.FromString,
+                    response_serializer=openshell__pb2.RotateProviderCredentialResponse.SerializeToString,
+            ),
+            'DeleteProviderRefresh': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteProviderRefresh,
+                    request_deserializer=openshell__pb2.DeleteProviderRefreshRequest.FromString,
+                    response_serializer=openshell__pb2.DeleteProviderRefreshResponse.SerializeToString,
+            ),
             'DeleteProvider': grpc.unary_unary_rpc_method_handler(
                     servicer.DeleteProvider,
                     request_deserializer=openshell__pb2.DeleteProviderRequest.FromString,
                     response_serializer=openshell__pb2.DeleteProviderResponse.SerializeToString,
+            ),
+            'DeleteProviderProfile': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteProviderProfile,
+                    request_deserializer=openshell__pb2.DeleteProviderProfileRequest.FromString,
+                    response_serializer=openshell__pb2.DeleteProviderProfileResponse.SerializeToString,
             ),
             'GetSandboxConfig': grpc.unary_unary_rpc_method_handler(
                     servicer.GetSandboxConfig,
@@ -571,6 +1118,11 @@ def add_OpenShellServicer_to_server(servicer, server):
                     request_deserializer=openshell__pb2.GetSandboxProviderEnvironmentRequest.FromString,
                     response_serializer=openshell__pb2.GetSandboxProviderEnvironmentResponse.SerializeToString,
             ),
+            'ExchangeProviderSubjectToken': grpc.unary_unary_rpc_method_handler(
+                    servicer.ExchangeProviderSubjectToken,
+                    request_deserializer=openshell__pb2.ExchangeProviderSubjectTokenRequest.FromString,
+                    response_serializer=openshell__pb2.ExchangeProviderSubjectTokenResponse.SerializeToString,
+            ),
             'GetSandboxLogs': grpc.unary_unary_rpc_method_handler(
                     servicer.GetSandboxLogs,
                     request_deserializer=openshell__pb2.GetSandboxLogsRequest.FromString,
@@ -585,6 +1137,11 @@ def add_OpenShellServicer_to_server(servicer, server):
                     servicer.ConnectSupervisor,
                     request_deserializer=openshell__pb2.SupervisorMessage.FromString,
                     response_serializer=openshell__pb2.GatewayMessage.SerializeToString,
+            ),
+            'ReportMainProcessExit': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReportMainProcessExit,
+                    request_deserializer=openshell__pb2.ReportMainProcessExitRequest.FromString,
+                    response_serializer=openshell__pb2.ReportMainProcessExitResponse.SerializeToString,
             ),
             'RelayStream': grpc.stream_stream_rpc_method_handler(
                     servicer.RelayStream,
@@ -641,6 +1198,51 @@ def add_OpenShellServicer_to_server(servicer, server):
                     request_deserializer=openshell__pb2.GetDraftHistoryRequest.FromString,
                     response_serializer=openshell__pb2.GetDraftHistoryResponse.SerializeToString,
             ),
+            'IssueSandboxToken': grpc.unary_unary_rpc_method_handler(
+                    servicer.IssueSandboxToken,
+                    request_deserializer=openshell__pb2.IssueSandboxTokenRequest.FromString,
+                    response_serializer=openshell__pb2.IssueSandboxTokenResponse.SerializeToString,
+            ),
+            'RefreshSandboxToken': grpc.unary_unary_rpc_method_handler(
+                    servicer.RefreshSandboxToken,
+                    request_deserializer=openshell__pb2.RefreshSandboxTokenRequest.FromString,
+                    response_serializer=openshell__pb2.RefreshSandboxTokenResponse.SerializeToString,
+            ),
+            'CreateWorkspace': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateWorkspace,
+                    request_deserializer=openshell__pb2.CreateWorkspaceRequest.FromString,
+                    response_serializer=openshell__pb2.CreateWorkspaceResponse.SerializeToString,
+            ),
+            'GetWorkspace': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetWorkspace,
+                    request_deserializer=openshell__pb2.GetWorkspaceRequest.FromString,
+                    response_serializer=openshell__pb2.GetWorkspaceResponse.SerializeToString,
+            ),
+            'ListWorkspaces': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListWorkspaces,
+                    request_deserializer=openshell__pb2.ListWorkspacesRequest.FromString,
+                    response_serializer=openshell__pb2.ListWorkspacesResponse.SerializeToString,
+            ),
+            'DeleteWorkspace': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteWorkspace,
+                    request_deserializer=openshell__pb2.DeleteWorkspaceRequest.FromString,
+                    response_serializer=openshell__pb2.DeleteWorkspaceResponse.SerializeToString,
+            ),
+            'AddWorkspaceMember': grpc.unary_unary_rpc_method_handler(
+                    servicer.AddWorkspaceMember,
+                    request_deserializer=openshell__pb2.AddWorkspaceMemberRequest.FromString,
+                    response_serializer=openshell__pb2.AddWorkspaceMemberResponse.SerializeToString,
+            ),
+            'RemoveWorkspaceMember': grpc.unary_unary_rpc_method_handler(
+                    servicer.RemoveWorkspaceMember,
+                    request_deserializer=openshell__pb2.RemoveWorkspaceMemberRequest.FromString,
+                    response_serializer=openshell__pb2.RemoveWorkspaceMemberResponse.SerializeToString,
+            ),
+            'ListWorkspaceMembers': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListWorkspaceMembers,
+                    request_deserializer=openshell__pb2.ListWorkspaceMembersRequest.FromString,
+                    response_serializer=openshell__pb2.ListWorkspaceMembersResponse.SerializeToString,
+            ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
             'openshell.v1.OpenShell', rpc_method_handlers)
@@ -673,6 +1275,40 @@ class OpenShell(object):
         return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/Health',
             openshell__pb2.HealthRequest.SerializeToString,
             openshell__pb2.HealthResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetCurrentUser(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/GetCurrentUser',
+            openshell__pb2.GetCurrentUserRequest.SerializeToString,
+            openshell__pb2.GetCurrentUserResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetGatewayInfo(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/GetGatewayInfo',
+            openshell__pb2.GetGatewayInfoRequest.SerializeToString,
+            openshell__pb2.GetGatewayInfoResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -728,6 +1364,57 @@ class OpenShell(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def ListSandboxProviders(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/ListSandboxProviders',
+            openshell__pb2.ListSandboxProvidersRequest.SerializeToString,
+            openshell__pb2.ListSandboxProvidersResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AttachSandboxProvider(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/AttachSandboxProvider',
+            openshell__pb2.AttachSandboxProviderRequest.SerializeToString,
+            openshell__pb2.AttachSandboxProviderResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def DetachSandboxProvider(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/DetachSandboxProvider',
+            openshell__pb2.DetachSandboxProviderRequest.SerializeToString,
+            openshell__pb2.DetachSandboxProviderResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def DeleteSandbox(request,
             target,
             options=(),
@@ -745,6 +1432,40 @@ class OpenShell(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def StopSandbox(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/StopSandbox',
+            openshell__pb2.StopSandboxRequest.SerializeToString,
+            openshell__pb2.SandboxResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def StartSandbox(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/StartSandbox',
+            openshell__pb2.StartSandboxRequest.SerializeToString,
+            openshell__pb2.SandboxResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def CreateSshSession(request,
             target,
             options=(),
@@ -758,6 +1479,74 @@ class OpenShell(object):
         return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/CreateSshSession',
             openshell__pb2.CreateSshSessionRequest.SerializeToString,
             openshell__pb2.CreateSshSessionResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ExposeService(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/ExposeService',
+            openshell__pb2.ExposeServiceRequest.SerializeToString,
+            openshell__pb2.ServiceEndpointResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetService(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/GetService',
+            openshell__pb2.GetServiceRequest.SerializeToString,
+            openshell__pb2.ServiceEndpointResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ListServices(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/ListServices',
+            openshell__pb2.ListServicesRequest.SerializeToString,
+            openshell__pb2.ListServicesResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def DeleteService(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/DeleteService',
+            openshell__pb2.DeleteServiceRequest.SerializeToString,
+            openshell__pb2.DeleteServiceResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -791,6 +1580,40 @@ class OpenShell(object):
             metadata=None):
         return grpc.experimental.unary_stream(request, target, '/openshell.v1.OpenShell/ExecSandbox',
             openshell__pb2.ExecSandboxRequest.SerializeToString,
+            openshell__pb2.ExecSandboxEvent.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ForwardTcp(request_iterator,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.stream_stream(request_iterator, target, '/openshell.v1.OpenShell/ForwardTcp',
+            openshell__pb2.TcpForwardFrame.SerializeToString,
+            openshell__pb2.TcpForwardFrame.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ExecSandboxInteractive(request_iterator,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.stream_stream(request_iterator, target, '/openshell.v1.OpenShell/ExecSandboxInteractive',
+            openshell__pb2.ExecSandboxInput.SerializeToString,
             openshell__pb2.ExecSandboxEvent.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
@@ -847,6 +1670,91 @@ class OpenShell(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def ListProviderProfiles(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/ListProviderProfiles',
+            openshell__pb2.ListProviderProfilesRequest.SerializeToString,
+            openshell__pb2.ListProviderProfilesResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetProviderProfile(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/GetProviderProfile',
+            openshell__pb2.GetProviderProfileRequest.SerializeToString,
+            openshell__pb2.ProviderProfileResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ImportProviderProfiles(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/ImportProviderProfiles',
+            openshell__pb2.ImportProviderProfilesRequest.SerializeToString,
+            openshell__pb2.ImportProviderProfilesResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def UpdateProviderProfiles(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/UpdateProviderProfiles',
+            openshell__pb2.UpdateProviderProfilesRequest.SerializeToString,
+            openshell__pb2.UpdateProviderProfilesResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def LintProviderProfiles(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/LintProviderProfiles',
+            openshell__pb2.LintProviderProfilesRequest.SerializeToString,
+            openshell__pb2.LintProviderProfilesResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def UpdateProvider(request,
             target,
             options=(),
@@ -864,6 +1772,74 @@ class OpenShell(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def GetProviderRefreshStatus(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/GetProviderRefreshStatus',
+            openshell__pb2.GetProviderRefreshStatusRequest.SerializeToString,
+            openshell__pb2.GetProviderRefreshStatusResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ConfigureProviderRefresh(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/ConfigureProviderRefresh',
+            openshell__pb2.ConfigureProviderRefreshRequest.SerializeToString,
+            openshell__pb2.ConfigureProviderRefreshResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def RotateProviderCredential(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/RotateProviderCredential',
+            openshell__pb2.RotateProviderCredentialRequest.SerializeToString,
+            openshell__pb2.RotateProviderCredentialResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def DeleteProviderRefresh(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/DeleteProviderRefresh',
+            openshell__pb2.DeleteProviderRefreshRequest.SerializeToString,
+            openshell__pb2.DeleteProviderRefreshResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def DeleteProvider(request,
             target,
             options=(),
@@ -877,6 +1853,23 @@ class OpenShell(object):
         return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/DeleteProvider',
             openshell__pb2.DeleteProviderRequest.SerializeToString,
             openshell__pb2.DeleteProviderResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def DeleteProviderProfile(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/DeleteProviderProfile',
+            openshell__pb2.DeleteProviderProfileRequest.SerializeToString,
+            openshell__pb2.DeleteProviderProfileResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -1000,6 +1993,23 @@ class OpenShell(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def ExchangeProviderSubjectToken(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/ExchangeProviderSubjectToken',
+            openshell__pb2.ExchangeProviderSubjectTokenRequest.SerializeToString,
+            openshell__pb2.ExchangeProviderSubjectTokenResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def GetSandboxLogs(request,
             target,
             options=(),
@@ -1047,6 +2057,23 @@ class OpenShell(object):
         return grpc.experimental.stream_stream(request_iterator, target, '/openshell.v1.OpenShell/ConnectSupervisor',
             openshell__pb2.SupervisorMessage.SerializeToString,
             openshell__pb2.GatewayMessage.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ReportMainProcessExit(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/ReportMainProcessExit',
+            openshell__pb2.ReportMainProcessExitRequest.SerializeToString,
+            openshell__pb2.ReportMainProcessExitResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -1234,5 +2261,158 @@ class OpenShell(object):
         return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/GetDraftHistory',
             openshell__pb2.GetDraftHistoryRequest.SerializeToString,
             openshell__pb2.GetDraftHistoryResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def IssueSandboxToken(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/IssueSandboxToken',
+            openshell__pb2.IssueSandboxTokenRequest.SerializeToString,
+            openshell__pb2.IssueSandboxTokenResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def RefreshSandboxToken(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/RefreshSandboxToken',
+            openshell__pb2.RefreshSandboxTokenRequest.SerializeToString,
+            openshell__pb2.RefreshSandboxTokenResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def CreateWorkspace(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/CreateWorkspace',
+            openshell__pb2.CreateWorkspaceRequest.SerializeToString,
+            openshell__pb2.CreateWorkspaceResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetWorkspace(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/GetWorkspace',
+            openshell__pb2.GetWorkspaceRequest.SerializeToString,
+            openshell__pb2.GetWorkspaceResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ListWorkspaces(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/ListWorkspaces',
+            openshell__pb2.ListWorkspacesRequest.SerializeToString,
+            openshell__pb2.ListWorkspacesResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def DeleteWorkspace(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/DeleteWorkspace',
+            openshell__pb2.DeleteWorkspaceRequest.SerializeToString,
+            openshell__pb2.DeleteWorkspaceResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AddWorkspaceMember(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/AddWorkspaceMember',
+            openshell__pb2.AddWorkspaceMemberRequest.SerializeToString,
+            openshell__pb2.AddWorkspaceMemberResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def RemoveWorkspaceMember(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/RemoveWorkspaceMember',
+            openshell__pb2.RemoveWorkspaceMemberRequest.SerializeToString,
+            openshell__pb2.RemoveWorkspaceMemberResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ListWorkspaceMembers(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/openshell.v1.OpenShell/ListWorkspaceMembers',
+            openshell__pb2.ListWorkspaceMembersRequest.SerializeToString,
+            openshell__pb2.ListWorkspaceMembersResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

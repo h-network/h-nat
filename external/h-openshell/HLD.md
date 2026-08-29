@@ -65,7 +65,7 @@ The intended public Python surface is:
 
 - `OpenShellClient`: an async, reusable gateway connection and async context
   manager;
-- `Sandbox`: a stable view of gateway sandbox identity and phase;
+- `Sandbox`: a stable view of gateway sandbox identity, workspace, and phase;
 - `ExecResult`: collected exit code, stdout, and stderr;
 - gateway health;
 - create, get, list, and delete sandbox operations;
@@ -76,6 +76,11 @@ Sandbox names are the consumer-facing identity. Gateway UUIDs may be accepted
 where useful, but UUID resolution is an adapter concern and must not leak into
 workflow state as the primary identity. Name-to-UUID mappings must not be
 cached across delete/recreate cycles.
+
+Explicitly requested names follow the gateway's DNS-routable contract: at most
+19 UTF-8 bytes, lowercase ASCII letters/digits/hyphens only, no leading or
+trailing hyphen, and no consecutive hyphens. An empty create name delegates
+name generation to the gateway.
 
 ### NAT API
 

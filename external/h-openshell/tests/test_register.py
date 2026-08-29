@@ -44,7 +44,7 @@ class FakeClient:
 
     async def list_sandboxes(self, **kwargs: Any) -> list[Sandbox]:
         self.calls.append(("list", kwargs))
-        return [Sandbox("id-1", "agent", "ns-agent", 2, "SANDBOX_PHASE_READY")]
+        return [Sandbox("id-1", "agent", "default", 2, "SANDBOX_PHASE_READY")]
 
     async def _resolve_name(self, name_or_id: str) -> str:
         self.calls.append(("resolve_name", name_or_id))
@@ -52,11 +52,11 @@ class FakeClient:
 
     async def get_sandbox(self, name: str, **kwargs: Any) -> Sandbox:
         self.calls.append(("get", (name, kwargs)))
-        return Sandbox("id-1", name, "ns-agent", 2, "SANDBOX_PHASE_READY")
+        return Sandbox("id-1", name, "default", 2, "SANDBOX_PHASE_READY")
 
     async def create_sandbox(self, name: str, **kwargs: Any) -> Sandbox:
         self.calls.append(("create", (name, kwargs)))
-        return Sandbox("id-1", name, "ns-agent", 2, "SANDBOX_PHASE_READY")
+        return Sandbox("id-1", name, "default", 2, "SANDBOX_PHASE_READY")
 
     async def delete_sandbox(self, name_or_id: str, **kwargs: Any) -> bool:
         self.calls.append(("delete", (name_or_id, kwargs)))
