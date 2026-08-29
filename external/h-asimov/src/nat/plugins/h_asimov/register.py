@@ -153,6 +153,16 @@ class GateDecision(BaseModel):
     reason: str | None = None
 
 
+def _gate_decision_to_str(decision: GateDecision) -> str:
+    """Output converter for front ends that request `to_type=str` (e.g. `nat run`'s
+    console front end calls `runner.result(to_type=str)`). Without this, NAT's
+    `TypeConverter` has no registered path from `GateDecision` to `str` — the global
+    converter registry only knows `TextIOWrapper -> str` — and conversion raises
+    `ValueError: Cannot convert type GateDecision to str. No match found.`
+    """
+    return decision.model_dump_json()
+
+
 def _to_gate_decision(decision: Decision) -> GateDecision:
     if decision.verdict == Verdict.ALLOW:
         return GateDecision(verdict="ALLOW", layer="passthrough", reason=None)
@@ -225,4 +235,5 @@ async def h_asimov_gate(config: AsimovGateConfig, builder: Builder):
             "Pre-flight safety gate: evaluates a command against a denylist and an LLM "
             "judge, returning ALLOW/DENY before anything executes."
         ),
+        converters=[_gate_decision_to_str],
     )

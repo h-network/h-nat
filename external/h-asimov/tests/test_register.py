@@ -7,10 +7,13 @@ runtime or network call is required.
 """
 from __future__ import annotations
 
+import json
+
 import pytest
 from pydantic import ValidationError
 
 from conftest import FakeBuilder, FakeLLM
+from nat.builder.function import LambdaFunction
 from nat.plugins.h_asimov.register import AsimovGateConfig, h_asimov_gate
 
 
@@ -156,3 +159,67 @@ async def test_gate_denylist_override_appends_to_defaults() -> None:
     assert override_decision.layer == "L1_denylist"
     assert default_decision.verdict == "DENY"
     assert default_decision.layer == "L1_denylist"
+
+
+# ---- NAT output conversion path (e.g. `nat run`'s console front end, which calls
+# `runner.result(to_type=str)` -> `Function.ainvoke(..., to_type=str)`) ----
+#
+# Calling `function_info.single_fn(...)` directly (as the tests above do) never
+# exercises NAT's `TypeConverter`, so it can't catch a missing output converter.
+# These tests build a real `nat.builder.function.Function` from the `FunctionInfo`
+# yielded by `h_asimov_gate` and drive it the same way a front end does.
+
+
+async def _build_function(config: AsimovGateConfig, builder: FakeBuilder) -> LambdaFunction:
+    async with h_asimov_gate(config, builder) as function_info:
+        return LambdaFunction.from_info(config=config, info=function_info)
+
+
+@pytest.mark.asyncio
+async def test_gate_output_converts_to_str_via_function_ainvoke() -> None:
+    """Regression test: without a registered GateDecision -> str converter, this
+    raised `ValueError: Cannot convert type GateDecision to str. No match found.`
+    """
+    config = AsimovGateConfig(mode="asimov", llm_name="judge_llm", ground_rules_inline="be nice")
+    function = await _build_function(config, FakeBuilder(FakeLLM(responses=["ALLOW"])))
+
+    result = await function.ainvoke("ls -la", to_type=str)
+
+    assert isinstance(result, str)
+    assert json.loads(result) == {"verdict": "ALLOW", "layer": "passthrough", "reason": None}
+
+
+@pytest.mark.asyncio
+async def test_gate_deny_output_converts_to_str_via_function_ainvoke() -> None:
+    config = AsimovGateConfig(mode="asimov", llm_name="judge_llm", ground_rules_inline="be nice")
+    function = await _build_function(config, FakeBuilder(FakeLLM(responses=["DENY: writes /etc"])))
+
+    result = await function.ainvoke("rm /etc/passwd", to_type=str)
+
+    assert isinstance(result, str)
+    parsed = json.loads(result)
+    assert parsed == {"verdict": "DENY", "layer": "L2_asimov", "reason": "writes /etc"}
+
+
+@pytest.mark.asyncio
+async def test_gate_noop_output_converts_to_str_via_function_ainvoke() -> None:
+    config = AsimovGateConfig(mode="noop")
+    function = await _build_function(config, FakeBuilder(llm=None))
+
+    result = await function.ainvoke("rm -rf /", to_type=str)
+
+    assert isinstance(result, str)
+    assert json.loads(result) == {"verdict": "ALLOW", "layer": "passthrough", "reason": None}
+
+
+@pytest.mark.asyncio
+async def test_gate_ainvoke_without_to_type_still_returns_gate_decision() -> None:
+    """No conversion requested -> the raw `GateDecision` still comes back
+    untouched; the fix must not change the default (no `to_type`) behavior."""
+    config = AsimovGateConfig(mode="asimov", llm_name="judge_llm", ground_rules_inline="be nice")
+    function = await _build_function(config, FakeBuilder(FakeLLM(responses=["ALLOW"])))
+
+    result = await function.ainvoke("ls -la")
+
+    assert result.verdict == "ALLOW"
+    assert result.layer == "passthrough"
