@@ -15,7 +15,7 @@ dependencies = [
   "h-openshell",
   "nvidia-nat-core>=1.8,<2",
   "pydantic>=2,<3",
-  "redis>=5,<7",
+  "redis>=7.1,<8",
 ]
 
 [project.optional-dependencies]
