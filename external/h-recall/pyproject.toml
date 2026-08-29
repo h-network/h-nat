@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "h-recall"
+version = "0.0.0"
+description = "NAT plugin: long-term semantic memory. Operator-controlled TTL/sweep/vectorize/search over Redis Stack (RediSearch + RedisJSON). Workflow-callable as _type: h_semantic_search, h_semantic_sweep, h_semantic_vectorize."
+requires-python = ">=3.11"
+license = { text = "TBD" }
+authors = [{ name = "h-network" }]
+readme = "README.md"
+keywords = ["nat", "nemo-agent-toolkit", "memory", "semantic", "vector", "redis", "h-network", "h-recall"]
+
+dependencies = [
+    "nvidia-nat>=1.6,<2",
+    "redis>=7.1,<8",
+    "fastembed>=0.3,<1",
+    "numpy>=1.26,<3",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0", "pytest-asyncio>=0.23", "fakeredis>=2.20"]
+
+[project.entry-points."nat.components"]
+h_recall = "nat.plugins.h_recall.register"
+h_network_semantic_memory = "nat.plugins.h_network_semantic_memory.register"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["nat.*"]
