@@ -65,7 +65,7 @@ _POD_AGENT_TOKEN_PATTERN = r"^[A-Za-z0-9_-]+$"
 # as JSON when NAT's CLI front-end coerces to ``str``.
 # ---------------------------------------------------------------------------
 
-def _obj_to_str(value: Any) -> str:
+def _obj_to_str(value: object) -> str:
     """JSON-stringify a dict / list / int return value for ``nat run``."""
     return json.dumps(value, default=str)
 
