@@ -176,3 +176,8 @@ async def h_agent_stream(config: AgentStreamConfig, builder: Builder):
 async def claude_invoke(config: ClaudeInvokeConfig, builder: Builder):
     async for function in _invoke_builder(config, "claude_invoke"):
         yield function
+
+
+# Import additional registration modules after the shared config and client
+# factory are defined. Their decorators execute when NAT loads this component.
+from . import chat_cycle, claude_stream  # noqa: E402, F401

@@ -11,9 +11,11 @@ requires-python = ">=3.11,<3.14"
 license = {text = "TBD"}
 authors = [{name = "h-network"}]
 dependencies = [
+  "h-memory",
   "h-openshell",
   "nvidia-nat-core>=1.8,<2",
   "pydantic>=2,<3",
+  "redis>=5,<7",
 ]
 
 [project.optional-dependencies]

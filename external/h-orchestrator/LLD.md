@@ -13,13 +13,12 @@ owns the mechanisms that are implemented now.
 
 ## Implementation status
 
-The first stateless execution slice is implemented. It contains an installable
-Python package, generic unary and streaming NAT functions, a Claude unary
-wrapper, two unary parsers, and transport-neutral unit tests.
+The package implements generic unary and streaming execution, Claude unary and
+stream-json wrappers, two unary parsers, and a dispatcher-agnostic
+Redis-backed chat cycle.
 
-The predecessor's `claude_stream`, `claude_via_hramp`, `h_chat_cycle`, and
-`h_claude_cycle` functions have not been ported. There is no Redis, `h-memory`,
-or h-ramp dependency in the implemented runtime path.
+The predecessor's `claude_via_hramp` and `h_claude_cycle` functions have not
+been ported. No h-ramp dependency is declared.
 
 ## Package layout
 
@@ -31,6 +30,8 @@ external/h-orchestrator/
 ├── pyproject.toml
 ├── src/nat/plugins/h_orchestrator/
 │   ├── __init__.py
+│   ├── chat_cycle.py
+│   ├── claude_stream.py
 │   ├── core.py
 │   ├── register.py
 │   └── parsers/
@@ -45,7 +46,7 @@ external/h-orchestrator/
 ```
 
 The distribution is `h-orchestrator`, version `0.1.0`, supporting Python
-3.11-3.13. Runtime dependencies are `h-openshell`,
+3.11-3.13. Runtime dependencies are `h-memory`, `h-openshell`, Redis 5-6,
 `nvidia-nat-core>=1.8,<2`, and Pydantic 2. The namespace package is
 `nat.plugins.h_orchestrator`. Plugin-authoring symbols are imported from the
 stable `nat.plugin_api` facade.
@@ -125,6 +126,44 @@ When `hook_settings_path` is present, a Pydantic post-validator appends
 `--settings <path>` to the resolved argument list. The registration delegates
 to the same unary builder as `h_agent_invoke`.
 
+### `claude_stream`
+
+`ClaudeStreamConfig` inherits the strict generic invocation fields and supplies
+Claude stateless stream-json flags. Its builder creates one OpenShell client
+lazily under an async lock and closes it at teardown.
+
+The consumer uses an incremental UTF-8 decoder and retains incomplete text
+between stdout chunks. Complete lines are decoded as JSON; non-JSON and
+non-result events are ignored. The last successful `type="result"` text is
+returned after exit zero. Error results, non-zero exits, a missing exit event,
+or a missing successful result return documented bracketed error strings.
+Stderr is logged with a 300-character bound.
+
+### `h_chat_cycle`
+
+`HChatCycleConfig` is strict. It requires a dispatcher name and accepts
+optional `chat_id`, `pod`, and `agent` defaults, Redis URL, hot-tier count bound,
+and turn TTL. `HChatCycleInput` contains a required message plus optional
+per-request addressing and metadata. Per-request addressing wins over config;
+all three axes are required after resolution. `pod` and `agent` use the
+ADR-012-safe token pattern.
+
+The builder lazily initializes one decoded Redis client and resolves the
+configured NAT dispatcher under one async lock. Each invocation:
+
+1. reads indexed h-memory payloads and orders live, valid JSON objects oldest
+   first;
+2. builds the predecessor-compatible history/current-message prompt;
+3. calls `dispatcher.ainvoke(prompt, to_type=str)` and measures wall time;
+4. on a raised dispatcher error, returns a typed error result without writes;
+5. otherwise creates a per-request `BoundedBufferStore` and writes the user,
+   then assistant, using the configured TTL and count bound; and
+6. returns result text, resolved chat ID, prior count, duration, and assistant
+   turn key.
+
+String converters accept either a JSON typed request or a bare message and
+reduce typed output to its result text. The Redis client closes at teardown.
+
 ## Script construction
 
 `build_script` returns UTF-8 bytes beginning with `set -e`. The command and
@@ -174,6 +213,10 @@ lazy and guarded by a per-builder `asyncio.Lock` with a second check inside the
 critical section, so concurrent first invocations share one client. Teardown is
 deterministic.
 
+The chat-cycle closure similarly guards Redis-client construction and NAT
+dispatcher lookup with one lock. `BoundedBufferStore` is per invocation so
+resolved tenant axes can vary by request.
+
 Parser instances are cached globally. Implementations registered by third
 parties must therefore be safe for reuse across invocations and workflows.
 
@@ -192,17 +235,22 @@ client. It verifies:
 - built-in parser discovery and unknown-name errors;
 - strict configuration and Claude wrapper defaults;
 - lazy client construction, concurrent first-call sharing, and teardown; and
-- missing streaming terminal-event reporting.
+- missing streaming terminal-event reporting;
+- Claude stream decoding across split UTF-8 and JSON chunks;
+- Claude stream error-result handling; and
+- chat addressing, prompt shape, chronological reads, and missing-axis errors.
 
 A real NAT loader/discovery smoke and full stream event matrix still require an
 environment with `nvidia-nat-core` and `h-openshell` installed.
 
 ## Disagreements and remaining baseline work
 
-1. The HLD lists four predecessor functions as candidates; they are not
-   implemented and are not registered by this package.
-2. The root `h-nat` README's invoke/stream summary matches the implemented
-   first slice. Redis-backed cycles described in the HLD remain target scope.
+1. h-ramp support is deferred. It is not one of the five planned `h-nat`
+   modules and has no public package/import contract here. `claude_via_hramp`
+   and `h_claude_cycle` require a decision on whether h-ramp becomes a sixth
+   module before they can be implemented.
+2. The root `h-nat` README summarizes only invoke/stream. This module now also
+   implements the explicit `h_chat_cycle` memory composition.
 3. The predecessor generic stdin path used a fixed heredoc delimiter. Current
    code selects a collision-free delimiter, closing a prompt-integrity edge
    case rather than preserving the predecessor behavior.
@@ -210,7 +258,8 @@ environment with `nvidia-nat-core` and `h-openshell` installed.
    `nat.plugins.orchestrator`. Current code uses the public distribution name
    `h-orchestrator` and namespace `nat.plugins.h_orchestrator`.
 5. The predecessor dedicated `claude_stream` performed eager gateway health
-   checking. It has not been ported; all implemented clients initialize lazily.
+   checking. Current `claude_stream` initializes lazily and safely handles JSON
+   or UTF-8 tokens split across transport chunks.
 6. Unary failure and h-agent stream failure remain error-as-data for baseline
    compatibility. The HLD calls for an explicit final failure contract before
    the public interface is declared stable.

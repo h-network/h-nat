@@ -15,8 +15,10 @@ class FunctionBaseConfig(BaseModel):
 
 class FunctionInfo:
     @classmethod
-    def from_fn(cls, function, description=""):
-        return SimpleNamespace(function=function, description=description)
+    def from_fn(cls, function, description="", **kwargs):
+        return SimpleNamespace(
+            function=function, description=description, **kwargs
+        )
 
 
 def _module(name, **attributes):
@@ -33,6 +35,9 @@ def register_module():
         def from_default_home(cls, **kwargs):
             raise AssertionError("tests replace the client factory")
 
+    class BoundedBufferStore:
+        pass
+
     def register_function(*, config_type):
         return lambda function: function
 
@@ -44,6 +49,7 @@ def register_module():
         register_function=register_function,
     )
     _module("nat.plugins.h_openshell", OpenShellClient=OpenShellClient)
+    _module("nat.plugins.h_memory", BoundedBufferStore=BoundedBufferStore)
     sys.modules.pop("nat.plugins.h_orchestrator.register", None)
     return importlib.import_module("nat.plugins.h_orchestrator.register")
 
@@ -139,3 +145,155 @@ async def test_stream_builder_reports_missing_exit(register_module, monkeypatch)
     chunks = [chunk async for chunk in function_info.function("hello")]
     assert chunks == ["chunk", "[exit_code=missing]"]
     await generator.aclose()
+
+
+@pytest.mark.asyncio
+async def test_claude_stream_handles_split_utf8_json_lines(register_module):
+    module = sys.modules["nat.plugins.h_orchestrator.claude_stream"]
+    payload = '{"type":"result","is_error":false,"result":"café"}\n'.encode()
+
+    class Event:
+        def __init__(self, kind, data=None, exit_code=None):
+            self.kind = kind
+            if kind == "stdout":
+                self.stdout = SimpleNamespace(data=data)
+            if kind == "exit":
+                self.exit = SimpleNamespace(exit_code=exit_code)
+
+        def WhichOneof(self, field):
+            return self.kind
+
+    class Client:
+        async def exec_stream(self, *args, **kwargs):
+            split = payload.index(b"\xc3") + 1
+            yield Event("stdout", payload[:split])
+            yield Event("stdout", payload[split:])
+            yield Event("exit", exit_code=0)
+
+    config = module.ClaudeStreamConfig(sandbox="box")
+    assert await module.consume_claude_stream(Client(), config, "hello") == "café"
+
+
+@pytest.mark.asyncio
+async def test_claude_stream_reports_error_result(register_module):
+    module = sys.modules["nat.plugins.h_orchestrator.claude_stream"]
+
+    class Event:
+        def __init__(self, kind):
+            self.kind = kind
+            self.stdout = SimpleNamespace(
+                data=b'{"type":"result","is_error":true,"result":"denied"}\n'
+            )
+            self.exit = SimpleNamespace(exit_code=0)
+
+        def WhichOneof(self, field):
+            return self.kind
+
+    class Client:
+        async def exec_stream(self, *args, **kwargs):
+            yield Event("stdout")
+            yield Event("exit")
+
+    config = module.ClaudeStreamConfig(sandbox="box")
+    result = await module.consume_claude_stream(Client(), config, "hello")
+    assert result == "[claude_stream error: denied]"
+
+
+def test_chat_cycle_addressing_and_prompt(register_module):
+    module = sys.modules["nat.plugins.h_orchestrator.chat_cycle"]
+    config = module.HChatCycleConfig(
+        dispatcher="agent", chat_id="default", pod="pod", agent="agent"
+    )
+    request = module.HChatCycleInput(message="next", chat_id="override")
+    assert module.resolve_addressing(request, config) == (
+        "override",
+        "pod",
+        "agent",
+    )
+    assert module.build_chat_prompt(
+        [{"role": "user", "content": "before"}], "next"
+    ) == "Previous conversation:\n[user] before\n\nCurrent message:\nnext\n"
+
+
+@pytest.mark.asyncio
+async def test_chat_cycle_reads_prior_turns_oldest_first(register_module):
+    module = sys.modules["nat.plugins.h_orchestrator.chat_cycle"]
+
+    class Redis:
+        async def zrevrange(self, key, start, end):
+            return ["new", "old"]
+
+        async def mget(self, *keys):
+            return [
+                '{"role":"assistant","content":"new"}',
+                '{"role":"user","content":"old"}',
+            ]
+
+    assert await module.read_prior_turns(Redis(), "p", "a", "c") == [
+        {"role": "user", "content": "old"},
+        {"role": "assistant", "content": "new"},
+    ]
+
+
+def test_chat_cycle_requires_complete_addressing(register_module):
+    module = sys.modules["nat.plugins.h_orchestrator.chat_cycle"]
+    config = module.HChatCycleConfig(dispatcher="agent")
+    request = module.HChatCycleInput(message="hello")
+    with pytest.raises(ValueError, match="chat_id, pod, agent"):
+        module.resolve_addressing(request, config)
+
+
+@pytest.mark.asyncio
+async def test_chat_cycle_dispatches_writes_and_closes(register_module, monkeypatch):
+    module = sys.modules["nat.plugins.h_orchestrator.chat_cycle"]
+    written = []
+
+    class Redis:
+        closed = False
+
+        async def zrevrange(self, key, start, end):
+            return []
+
+        async def aclose(self):
+            self.closed = True
+
+    redis = Redis()
+
+    class Store:
+        def __init__(self, **kwargs):
+            assert kwargs["client"] is redis
+
+        async def write_turn(
+            self, chat_id, role, content, ttl_seconds, *, hot_keep_count
+        ):
+            written.append((chat_id, role, content, ttl_seconds, hot_keep_count))
+            return f"turn:{role}"
+
+    class Dispatcher:
+        async def ainvoke(self, prompt, to_type):
+            assert prompt == "hello"
+            assert to_type is str
+            return "answer"
+
+    class Builder:
+        async def get_function(self, name):
+            assert name == "agent"
+            return Dispatcher()
+
+    monkeypatch.setattr(
+        module.aioredis,
+        "Redis",
+        SimpleNamespace(from_url=lambda *args, **kwargs: redis),
+    )
+    monkeypatch.setattr(module, "BoundedBufferStore", Store)
+    config = module.HChatCycleConfig(
+        dispatcher="agent", chat_id="chat", pod="pod", agent="agent"
+    )
+    generator = module.h_chat_cycle(config, Builder())
+    function_info = await anext(generator)
+    output = await function_info.function(module.HChatCycleInput(message="hello"))
+    assert output.result == "answer"
+    assert output.turn_id == "turn:assistant"
+    assert [turn[1] for turn in written] == ["user", "assistant"]
+    await generator.aclose()
+    assert redis.closed

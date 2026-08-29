@@ -1,16 +1,19 @@
 # h-orchestrator
 
-`h-orchestrator` exposes stateless command-line agents as NeMo Agent Toolkit
-(NAT) functions. The first implementation slice provides:
+`h-orchestrator` exposes command-line agents and explicit conversation cycles
+as NeMo Agent Toolkit (NAT) functions:
 
 | NAT `_type` | Behavior |
 | --- | --- |
 | `h_agent_invoke` | Execute a configured command in an OpenShell sandbox and return parsed output. |
 | `h_agent_stream` | Execute a configured command and yield stdout chunks. |
 | `claude_invoke` | Invoke the Claude CLI through the unary core with stateless JSON-mode defaults. |
+| `claude_stream` | Consume Claude stream-json incrementally and return its final result. |
+| `h_chat_cycle` | Read bounded Redis history, call a configured dispatcher, and persist the successful turn. |
 
-Conversation memory is not implicit. Compose these functions with `h-memory`
-or another state provider at the workflow/application layer.
+Conversation memory is not implicit in invoke/stream functions. Use
+`h_chat_cycle` when the workflow should explicitly compose `h-memory` around a
+dispatcher.
 
 ## Install and test
 
@@ -59,6 +62,36 @@ workflow:
 The wrapper supplies `claude -p --no-session-persistence` and JSON output
 defaults. Operators may override the inherited command arguments or add a
 Claude settings file with `hook_settings_path`.
+
+Use `_type: claude_stream` with the same sandbox fields to consume Claude
+stream-json. It handles JSON and UTF-8 sequences split across transport chunks
+and returns the final successful result.
+
+## Memory-aware chat cycle
+
+```yaml
+functions:
+  agent:
+    _type: claude_invoke
+    sandbox: my-sandbox
+
+workflow:
+  _type: h_chat_cycle
+  dispatcher: agent
+  chat_id: example-chat
+  pod: example
+  agent: assistant
+  redis_url: redis://localhost:6379
+```
+
+`chat_id`, `pod`, and `agent` can instead be supplied per request and override
+configuration defaults. The composite reads prior live turns oldest-first,
+builds a history prompt, calls the configured NAT function using its
+`str -> str` contract, and writes user and assistant turns only after a
+successful dispatch.
+
+h-ramp-dependent functions are not included. h-ramp has no public contract in
+the five-module `h-nat` plan; support is deferred pending a module decision.
 
 See [HLD.md](HLD.md) for the module boundary and [LLD.md](LLD.md) for the
 current implementation details and remaining baseline work.

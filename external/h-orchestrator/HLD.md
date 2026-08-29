@@ -3,8 +3,8 @@
 ## Status
 
 This document describes the target design for `h-orchestrator` in `h-nat`.
-The first stateless invocation slice is implemented; memory-aware composites
-and h-ramp dispatch are not yet present. The starting specification is the existing
+Stateless invocation, Claude streaming, and the generic memory-aware composite
+are implemented. The starting specification is the existing
 `h-network-nemo-agent-toolkit/external/h-network-orchestrator` plugin; the port
 may simplify or refactor that design before it becomes the public
 `h-orchestrator` interface.
@@ -24,19 +24,19 @@ not confused.
 
 ## Public interface
 
-The first three NAT function types are implemented. The remaining predecessor
-functions are candidate later slices, subject to review before they become
-public API.
+Five NAT function types are implemented. h-ramp-dependent predecessor
+functions are deferred because h-ramp has no public package contract in the
+five-module `h-nat` plan.
 
 | Function type | Status | Contract | Responsibility |
 | --- | --- | --- | --- |
 | `h_agent_invoke` | Implemented | `str -> str` | Run a prompt through a configured command and parse its final output. |
 | `h_agent_stream` | Implemented | `str -> AsyncGenerator[str, None]` | Run a configured command and yield stdout chunks. |
 | `claude_invoke` | Implemented | `str -> str` | Apply Claude CLI defaults to the generic invocation path. |
-| `claude_stream` | Candidate | `str -> str` | Consume Claude stream-json events and return the final assistant text. |
-| `claude_via_hramp` | Candidate | `str -> str` | Dispatch a Claude CLI command through h-ramp without memory composition. |
-| `h_chat_cycle` | Candidate | typed chat input -> typed chat output | Read bounded history, call a configured NAT dispatcher, and persist the new turn. |
-| `h_claude_cycle` | Candidate | typed chat input -> typed chat output | Read bounded history, dispatch Claude through h-ramp, and persist the new turn. |
+| `claude_stream` | Implemented | `str -> str` | Consume Claude stream-json events and return the final assistant text. |
+| `h_chat_cycle` | Implemented | typed chat input -> typed chat output | Read bounded history, call a configured NAT dispatcher, and persist the new turn. |
+| `claude_via_hramp` | Deferred | `str -> str` | Would dispatch a Claude CLI command through h-ramp without memory composition. |
+| `h_claude_cycle` | Deferred | typed chat input -> typed chat output | Would read bounded history, dispatch Claude through h-ramp, and persist the new turn. |
 
 The generic invocation configuration selects an execution target, command,
 arguments, prompt-delivery method (`arg`, `stdin`, or `env:VARNAME`), optional
@@ -60,15 +60,14 @@ NAT workflow / API caller
           |                                                     |
           +-- explicit chat cycle -> h-memory / Redis           |
                                   -> dispatcher ----------------+
-                                             or -> h-ramp -> agent peer
 ```
 
 `h-orchestrator` fits between NAT workflows and an execution transport:
 
 - `h-openshell` provides the async gRPC/mTLS sandbox execution client used by
   the generic invoke and stream paths.
-- h-ramp is an optional dispatch path for agent peers. It is used by the
-  predecessor's Claude dispatcher and Claude-specific cycle.
+- h-ramp is not currently a dependency. Support is deferred pending a decision
+  on whether it becomes a sixth public `h-nat` module.
 - `h-memory` owns bounded conversation storage. Stateless invocation never
   imports memory concerns; the explicit cycle layer composes with it.
 - `h-recall` may supply long-term context at the caller/workflow layer. It is
@@ -83,7 +82,7 @@ NAT workflow / API caller
 - The generic core is command- and agent-agnostic. Claude behavior belongs in
   wrappers or dispatchers.
 - Infrastructure clients are created lazily, so loading a workflow does not
-  require a live gateway, Redis server, or h-ramp endpoint.
+  require a live gateway or Redis server.
 - Configuration rejects unknown fields to expose stale workflow configuration
   instead of silently ignoring it.
 - Prompts and command arguments are shell-quoted before execution. Transport
@@ -102,7 +101,7 @@ The implementation should keep these concerns separate:
 2. Generic script construction and invocation lifecycle.
 3. Unary output-parser protocol and parser discovery.
 4. Thin agent-specific wrappers.
-5. Transport-specific dispatchers such as h-ramp.
+5. Transport-specific dispatchers, if their transport has a public contract.
 6. Explicit memory-aware composites and their wire-shape converters.
 
 This separation lets another CLI, parser, or dispatcher be added without
