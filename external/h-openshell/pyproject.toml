@@ -12,7 +12,8 @@ license = "Apache-2.0"
 authors = [{name = "h-network"}]
 dependencies = [
   "grpcio>=1.60,<2",
-  "protobuf>=4,<7",
+  "nvidia-nat>=1.6,<2",
+  "protobuf>=5.27.2,<8",
 ]
 
 [project.optional-dependencies]
@@ -20,9 +21,9 @@ test = [
   "pytest>=7",
   "pytest-asyncio>=0.23",
 ]
-nat = [
-  "nvidia-nat>=1.6,<2",
-]
+
+[project.entry-points."nat.components"]
+h_openshell = "nat.plugins.h_openshell.register"
 
 [tool.setuptools.packages.find]
 where = ["src"]

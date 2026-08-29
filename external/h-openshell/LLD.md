@@ -17,10 +17,9 @@ As of 2026-08-29, `external/h-openshell/` contains the first reviewable Python
 client slice. It is an installable `h-openshell` distribution with stable
 domain values, typed module errors, gateway-home/mTLS discovery, a reusable
 async gRPC client, pinned protobuf source, vendored generated stubs, and unit
-tests. The wheel imports without `protoc` or a post-install generation step.
-
-NAT function registration is not implemented in this slice. The intended
-`h_openshell_*` interfaces in `HLD.md` therefore are not NAT-discoverable yet.
+tests. Seven canonical `h_openshell_*` functions are registered through the
+`nat.components` entry point. The wheel imports without `protoc` or a
+post-install generation step.
 
 The earlier `h-network-openshell-communicator` repository is a behavioral
 reference, not code shipped from this directory. Its behavior must be reviewed,
@@ -31,15 +30,15 @@ must not be treated as implicitly present here.
 
 | Area | Current state | Required next update to this LLD |
 |---|---|---|
-| Packaging | `h-openshell` 0.1.0.dev0; Python 3.11–3.13; grpcio/protobuf runtime | add the `nat.components` entry point with registration |
+| Packaging | `h-openshell` 0.1.0.dev0; Python 3.11–3.13; grpcio, protobuf, and nvidia-nat runtime | verify release metadata before publication |
 | Gateway client | implemented in `client.py` | extend only with tests and same-branch LLD updates |
 | Wire schema | OpenShell v0.0.36 sources and generated stubs vendored in `_proto/` | verify against a live v0.0.36 gateway |
-| NAT functions | absent | add config classes, canonical `_type` names, inputs, and outputs |
+| NAT functions | seven functions implemented in `register.py` | verify invocation against a live gateway |
 | NAT resource | absent and not contracted | document only if a resource is actually introduced |
-| Verification | nine unit tests plus clean-wheel build/import check | add NAT discovery and live-gateway integration coverage |
+| Verification | 21 tests, NAT discovery/workflow-build checks, and clean-wheel import | add live-gateway integration coverage |
 
-Sections describing present client code are factual. Sections headed “Target”
-remain the contract for work that has not landed yet.
+Sections describing present client and NAT code are factual. Target wording is
+reserved for work that has not landed yet.
 
 ## Package shape
 
@@ -51,16 +50,17 @@ external/h-openshell/
 ├── HLD.md
 ├── LLD.md
 ├── README.md                  operator-facing usage
-├── pyproject.toml             package metadata and dependencies
+├── pyproject.toml             package metadata, dependencies, NAT entry point
 ├── src/nat/plugins/h_openshell/
 │   ├── __init__.py            intentionally exported Python API
 │   ├── client.py              async gateway adapter
 │   ├── models.py              stable Sandbox and ExecResult values
 │   ├── errors.py              public module exception hierarchy
-│   ├── register.py            target: thin NAT configs and builders
+│   ├── register.py            thin NAT configs and builders
 │   └── _proto/                pinned schema and generated stubs
 └── tests/
     ├── test_client.py         fake-stub client behavior
+    ├── test_register.py       NAT discovery/build/output behavior
     └── integration/           target: opt-in compatible-gateway tests
 ```
 
@@ -158,9 +158,10 @@ missing terminal data is distinguishable from exit code zero.
 
 No automatic execution retry is permitted in the initial implementation.
 
-## Target NAT registration
+## NAT registration
 
-The distribution registers one `nat.components` entry point. Config types use
+`pyproject.toml` registers the `h_openshell` `nat.components` entry point to
+`nat.plugins.h_openshell.register`. Config types use
 the `h_openshell_*` names listed in `HLD.md`; predecessor bare
 `openshell_*` names are not the canonical public names.
 
@@ -173,18 +174,16 @@ All function configs share validated connection fields:
 - operation-specific RPC or lifecycle deadlines.
 
 Builders create a client and close it in `finally` around the yielded NAT
-function. Whether a builder performs an eager health check is part of its
-observable startup behavior and must be consistent:
+function. All seven builders are network-lazy: channel construction reads local
+configuration but no health or operation RPC occurs during workflow build. A
+NAT `WorkflowBuilder` test builds all seven against an unreachable endpoint.
 
-- health and lifecycle functions should build without contacting the gateway,
-  so a transiently unavailable gateway does not prevent workflow construction;
-- exec functions may fail fast during build only if that behavior is documented
-  and verified as the intended NAT operator experience.
-
-Lifecycle functions return versioned, deterministic JSON shapes until NAT
-offers an agreed structured-output contract. Streaming exec yields stdout
-incrementally, reports stderr through a documented channel, and represents
-non-zero exit without making it indistinguishable from ordinary stdout.
+Unary functions return compact deterministic JSON with sorted keys. Sandbox
+objects contain `id`, `name`, `namespace`, `phase`, and `phase_name`.
+`h_openshell_exec` returns `exit_code`, `stdout`, and `stderr` together.
+`h_openshell_exec_stream` emits one newline-delimited JSON object per gateway
+event, with `type` equal to `stdout`, `stderr`, or `exit`. This preserves
+incremental output and makes non-zero exit distinguishable from output text.
 
 ## Wire compatibility and generated code
 
@@ -195,8 +194,10 @@ six `_pb2.py`/`_pb2_grpc.py` files generated with `grpcio-tools==1.60.1` and
 `protobuf==4.25.8`, the oldest supported toolchain line. Generated intra-schema
 imports are mechanically rewritten to package-relative imports.
 
-This keeps the declared runtime range (`grpcio>=1.60,<2`, `protobuf>=4,<7`)
-honest and lets a clean wheel import without `protoc`. Runtime imports do not
+This keeps the generated code compatible with the declared gRPC runtime range.
+The protobuf runtime is `>=5.27.2,<8`, matching NAT 1.8's transitive Milvus
+requirement while remaining forward-compatible with the older generated code.
+A clean wheel imports without `protoc`. Runtime imports do not
 mutate `sys.path`. Updating the schema or generator requires regenerating all
 six files, rerunning unit and wheel checks, and updating this section.
 
@@ -214,10 +215,9 @@ stdin, or full command output by default.
 
 ## Verification invariants
 
-The current unit tests lock behaviors 1, 3–5, 7, and 9 below, with incremental
-event consumption covered as part of exec aggregation. Wheel build/import
-locks 11. Create transitions, explicit cancellation, and NAT discovery remain
-follow-up coverage:
+The current tests lock behaviors 1, 3–5, 7, 9, and 10 below, with incremental
+event consumption covered by registration tests. Wheel build/import locks 11.
+Create transitions and explicit cancellation remain follow-up coverage:
 
 1. gateway-home precedence and endpoint normalization;
 2. mTLS channel creation with verification retained;
