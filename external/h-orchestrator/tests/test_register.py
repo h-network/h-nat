@@ -292,6 +292,8 @@ async def test_chat_cycle_dispatches_writes_and_closes(register_module, monkeypa
     )
     generator = module.h_chat_cycle(config, Builder())
     function_info = await anext(generator)
+    assert function_info.function.__annotations__["request"] is module.HChatCycleInput
+    assert function_info.function.__annotations__["return"] is module.HChatCycleOutput
     output = await function_info.function(module.HChatCycleInput(message="hello"))
     assert output.result == "answer"
     assert output.turn_id == "turn:assistant"

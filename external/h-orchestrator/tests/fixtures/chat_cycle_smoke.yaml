@@ -1,0 +1,13 @@
+functions:
+  clock:
+    _type: current_datetime
+
+workflow:
+  _type: h_chat_cycle
+  dispatcher: clock
+  chat_id: annotation-smoke
+  pod: test
+  agent: orchestrator
+  redis_url: redis://localhost:6379
+  hot_keep_count: 2
+  ttl_seconds: 60
