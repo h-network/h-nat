@@ -12,6 +12,7 @@ import pytest
 from nat.plugins.h_openshell import (
     ConfigurationError,
     OpenShellClient,
+    SandboxNameError,
     SandboxTimeoutError,
 )
 from nat.plugins.h_openshell._proto import openshell_pb2
@@ -43,10 +44,12 @@ def sandbox_message(
     phase: int = openshell_pb2.SANDBOX_PHASE_READY,
 ) -> Any:
     return SimpleNamespace(
-        id=sandbox_id,
-        name=name,
-        namespace=f"ns-{name}",
-        phase=phase,
+        metadata=SimpleNamespace(
+            id=sandbox_id,
+            name=name,
+            workspace="default",
+        ),
+        status=SimpleNamespace(phase=phase),
     )
 
 
@@ -123,6 +126,84 @@ async def test_unknown_phase_is_preserved() -> None:
     sandbox = await client.get_sandbox("agent")
     assert sandbox.phase == 99
     assert sandbox.phase_name == "UNRECOGNIZED_99"
+
+
+def test_v0116_descriptor_uses_metadata_and_nested_status() -> None:
+    sandbox_fields = openshell_pb2.Sandbox.DESCRIPTOR.fields_by_name
+    assert list(sandbox_fields) == ["metadata", "spec", "status"]
+    assert openshell_pb2.SandboxResponse.DESCRIPTOR.fields_by_name["sandbox"].number == 1
+
+
+@pytest.mark.parametrize(
+    ("name", "message"),
+    [
+        ("a" * 20, "maximum length"),
+        ("é" * 10, "maximum length"),
+        ("Upper", "lowercase ASCII"),
+        ("café", "lowercase ASCII"),
+        ("-leading", "start or end"),
+        ("trailing-", "start or end"),
+        ("two--hyphens", "consecutive"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_create_rejects_names_the_gateway_would_reject(
+    name: str, message: str
+) -> None:
+    client, _ = make_client(object())
+    with pytest.raises(SandboxNameError, match=message):
+        await client.create_sandbox(name)
+
+
+@pytest.mark.asyncio
+async def test_create_sends_present_empty_spec_and_maps_v0116_response() -> None:
+    captured: Any = None
+
+    class Stub:
+        async def ListSandboxes(self, _request: Any, *, timeout: float) -> Any:
+            return SimpleNamespace(sandboxes=[])
+
+        async def CreateSandbox(self, request: Any, *, timeout: float) -> Any:
+            nonlocal captured
+            captured = request
+            return openshell_pb2.SandboxResponse(
+                sandbox=openshell_pb2.Sandbox(
+                    metadata={"id": "id-1", "name": "agent", "workspace": "default"},
+                    status={"phase": openshell_pb2.SANDBOX_PHASE_READY},
+                )
+            )
+
+    client, _ = make_client(Stub())
+    sandbox = await client.create_sandbox("agent")
+
+    assert captured.HasField("spec")
+    assert captured.spec == openshell_pb2.SandboxSpec()
+    assert sandbox.id == "id-1"
+    assert sandbox.name == "agent"
+    assert sandbox.workspace == "default"
+    assert sandbox.phase_name == "SANDBOX_PHASE_READY"
+
+
+def test_v0116_sandbox_response_round_trips_on_the_wire() -> None:
+    encoded = openshell_pb2.SandboxResponse(
+        sandbox=openshell_pb2.Sandbox(
+            metadata={
+                "id": "id-1",
+                "name": "agent",
+                "workspace": "default",
+                "resource_version": 7,
+            },
+            status={"phase": openshell_pb2.SANDBOX_PHASE_PROVISIONING},
+        )
+    ).SerializeToString()
+
+    decoded = openshell_pb2.SandboxResponse.FromString(encoded)
+    view = OpenShellClient._sandbox_view(decoded.sandbox)
+
+    assert view.id == "id-1"
+    assert view.name == "agent"
+    assert view.workspace == "default"
+    assert view.phase_name == "SANDBOX_PHASE_PROVISIONING"
 
 
 @pytest.mark.asyncio

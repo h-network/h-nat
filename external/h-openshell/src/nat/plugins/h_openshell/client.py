@@ -17,6 +17,7 @@ from .errors import (
     ConfigurationError,
     GatewayRPCError,
     SandboxLifecycleError,
+    SandboxNameError,
     SandboxTimeoutError,
 )
 from .models import ExecResult, Sandbox
@@ -25,6 +26,30 @@ from .models import ExecResult, Sandbox
 def _looks_like_uuid(value: str) -> bool:
     parts = value.split("-")
     return len(value) == 36 and tuple(map(len, parts)) == (8, 4, 4, 4, 12)
+
+
+def _validate_sandbox_name(name: str) -> None:
+    """Mirror the v0.0.116 gateway's routable sandbox-name validator."""
+
+    if not name:
+        return
+    byte_length = len(name.encode("utf-8"))
+    if byte_length > 19:
+        raise SandboxNameError(
+            f"sandbox name exceeds maximum length ({byte_length} > 19 bytes)"
+        )
+    if not all(
+        character.isascii()
+        and (character.islower() or character.isdigit() or character == "-")
+        for character in name
+    ):
+        raise SandboxNameError(
+            "sandbox name must contain only lowercase ASCII letters, digits, or hyphens"
+        )
+    if name.startswith("-") or name.endswith("-"):
+        raise SandboxNameError("sandbox name must not start or end with a hyphen")
+    if "--" in name:
+        raise SandboxNameError("sandbox name must not contain consecutive hyphens")
 
 
 class OpenShellClient:
@@ -115,15 +140,15 @@ class OpenShellClient:
 
     @staticmethod
     def _sandbox_view(message: Any) -> Sandbox:
-        phase = int(message.phase)
+        phase = int(message.status.phase)
         try:
             phase_name = openshell_pb2.SandboxPhase.Name(phase)
         except ValueError:
             phase_name = f"UNRECOGNIZED_{phase}"
         return Sandbox(
-            id=message.id,
-            name=message.name,
-            namespace=message.namespace,
+            id=message.metadata.id,
+            name=message.metadata.name,
+            workspace=message.metadata.workspace,
             phase=phase,
             phase_name=phase_name,
         )
@@ -227,6 +252,7 @@ class OpenShellClient:
         poll_interval_seconds: float = 2.0,
         rpc_timeout: float = 30.0,
     ) -> Sandbox:
+        _validate_sandbox_name(name)
         offset = 0
         while True:
             page = await self._list_page(limit=100, offset=offset, timeout=5.0)
@@ -243,9 +269,10 @@ class OpenShellClient:
                 break
             offset += len(page)
 
-        request = openshell_pb2.CreateSandboxRequest(name=name)
-        if spec is not None:
-            request.spec.CopyFrom(spec)
+        request = openshell_pb2.CreateSandboxRequest(
+            name=name,
+            spec=spec if spec is not None else openshell_pb2.SandboxSpec(),
+        )
         try:
             response = await self._stub.CreateSandbox(request, timeout=rpc_timeout)
         except grpc.RpcError as exc:

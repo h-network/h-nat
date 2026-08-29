@@ -6,6 +6,7 @@ from .errors import (
     GatewayRPCError,
     OpenShellError,
     SandboxLifecycleError,
+    SandboxNameError,
     SandboxTimeoutError,
 )
 from .models import ExecResult, Sandbox
@@ -18,5 +19,6 @@ __all__ = [
     "OpenShellError",
     "Sandbox",
     "SandboxLifecycleError",
+    "SandboxNameError",
     "SandboxTimeoutError",
 ]

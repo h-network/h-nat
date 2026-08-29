@@ -32,7 +32,7 @@ must not be treated as implicitly present here.
 |---|---|---|
 | Packaging | `h-openshell` 0.1.0.dev0; Python 3.11–3.13; grpcio, protobuf, and nvidia-nat runtime | verify release metadata before publication |
 | Gateway client | implemented in `client.py` | extend only with tests and same-branch LLD updates |
-| Wire schema | OpenShell v0.0.36 sources and generated stubs vendored in `_proto/` | verify against a live v0.0.36 gateway |
+| Wire schema | OpenShell v0.0.116 (`d1155aa`) sources and generated stubs vendored in `_proto/` | keep aligned with the deployed gateway release |
 | NAT functions | seven functions implemented in `register.py` | verify invocation against a live gateway |
 | NAT resource | absent and not contracted | document only if a resource is actually introduced |
 | Verification | 21 tests, NAT discovery/workflow-build checks, and clean-wheel import | add live-gateway integration coverage |
@@ -97,8 +97,9 @@ points keep transport tests deterministic without widening the exported API.
 `models.py` defines frozen, slotted dataclasses. Gateway protobuf messages are
 converted at the boundary:
 
-- `Sandbox` includes gateway ID, consumer-facing name, namespace, numeric
-  phase, and symbolic phase name.
+- `Sandbox` includes gateway ID, consumer-facing name, workspace, numeric
+  phase, and symbolic phase name. These map from `Sandbox.metadata` and
+  `Sandbox.status`; v0.0.116 removed the former public `namespace` field.
 - `ExecResult` includes exit code and raw stdout/stderr bytes, with replacement-
   decoding convenience properties for text consumers.
 
@@ -132,12 +133,20 @@ The first-release client maps to the public gateway API as follows:
 | `exec_stream` | resolve required identity, send exec request, yield events |
 | `exec` | consume `exec_stream`, preserving stdout, stderr, and exit code |
 
-`create_sandbox` first checks paginated results for an existing sandbox with
-the same name. Ready returns
+`create_sandbox` first validates a non-empty requested name against the
+v0.0.116 routable-name contract: at most 19 UTF-8 bytes, lowercase ASCII
+letters/digits/hyphens only, no leading or trailing hyphen, and no consecutive
+hyphens. Empty remains valid and asks the gateway to generate a name. It then
+checks paginated results for an existing sandbox with the same name. Ready returns
 success; an in-progress phase is watched or polled until ready; an error phase
 raises `SandboxLifecycleError`; deadline expiry raises `SandboxTimeoutError`
 with the last observed phase. This slice polls `GetSandbox`; adopting
 `WatchSandbox` requires compatible-gateway verification and an LLD update.
+
+Every create request includes a present `SandboxSpec` message. When the caller
+does not supply one, the client sends an empty-but-present `SandboxSpec()` so
+the v0.0.116 gateway can apply its defaults; omitting the message is rejected
+by the gateway as `INVALID_ARGUMENT: spec is required`.
 
 `delete_sandbox` with waiting enabled succeeds only when absence is confirmed.
 gRPC `NOT_FOUND` is the expected terminal state; unrelated RPC failures are
@@ -179,7 +188,7 @@ configuration but no health or operation RPC occurs during workflow build. A
 NAT `WorkflowBuilder` test builds all seven against an unreachable endpoint.
 
 Unary functions return compact deterministic JSON with sorted keys. Sandbox
-objects contain `id`, `name`, `namespace`, `phase`, and `phase_name`.
+objects contain `id`, `name`, `workspace`, `phase`, and `phase_name`.
 `h_openshell_exec` returns `exit_code`, `stdout`, and `stderr` together.
 `h_openshell_exec_stream` emits one newline-delimited JSON object per gateway
 event, with `type` equal to `stdout`, `stderr`, or `exit`. This preserves
@@ -187,19 +196,21 @@ incremental output and makes non-zero exit distinguishable from output text.
 
 ## Wire compatibility and generated code
 
-`src/nat/plugins/h_openshell/_proto/` vendors `datamodel.proto`,
-`sandbox.proto`, and `openshell.proto` from OpenShell v0.0.36. Each source file
-records that version and its upstream source URL. The package also vendors the
-six `_pb2.py`/`_pb2_grpc.py` files generated with `grpcio-tools==1.60.1` and
-`protobuf==4.25.8`, the oldest supported toolchain line. Generated intra-schema
-imports are mechanically rewritten to package-relative imports.
+`src/nat/plugins/h_openshell/_proto/` vendors `options.proto`,
+`datamodel.proto`, `sandbox.proto`, and `openshell.proto` verbatim from
+OpenShell v0.0.116, commit
+`d1155aa70042d3e2ee49dbfa15346b108b7c1d92`. `PROVENANCE.md` records the tag,
+commit, and source URL. The package also vendors the eight
+`_pb2.py`/`_pb2_grpc.py` files generated with `grpcio-tools==1.60.1`.
+Generated intra-schema imports are mechanically rewritten to package-relative
+imports.
 
 This keeps the generated code compatible with the declared gRPC runtime range.
 The protobuf runtime is `>=5.27.2,<8`, matching NAT 1.8's transitive Milvus
 requirement while remaining forward-compatible with the older generated code.
 A clean wheel imports without `protoc`. Runtime imports do not
 mutate `sys.path`. Updating the schema or generator requires regenerating all
-six files, rerunning unit and wheel checks, and updating this section.
+eight files, rerunning unit and wheel checks, and updating this section.
 
 ## Errors, deadlines, and logging
 

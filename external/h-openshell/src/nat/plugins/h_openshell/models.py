@@ -11,7 +11,7 @@ class Sandbox:
 
     id: str
     name: str
-    namespace: str
+    workspace: str
     phase: int
     phase_name: str
 

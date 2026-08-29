@@ -18,7 +18,7 @@ async with OpenShellClient.from_default_home() as gateway:
 ```
 
 The package vendors protobuf source and generated Python stubs pinned to
-OpenShell v0.0.36. A normal wheel install does not require `protoc` or a
+OpenShell v0.0.116. A normal wheel install does not require `protoc` or a
 post-install stub-generation script.
 
 ## NAT functions
