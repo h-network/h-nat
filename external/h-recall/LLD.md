@@ -352,3 +352,11 @@ h_network_semantic_memory = "nat.plugins.h_network_semantic_memory.register"
 | `search_text` | $O(\log N_{\text{audit}} + K)$ | $O(K)$ | RediSearch inverted index text search scoped to TAG filter. |
 | `search_knn` | $O(M \cdot \log N_{\text{audit}} + K \log K)$ | $O(K)$ | HNSW vector index nearest neighbor search scoped to TAG filter. |
 | `search_hybrid` | $O(\text{Cost}_{\text{text}} + \text{Cost}_{\text{knn}} + P \log P)$ | $O(P)$ | $P = K \times \text{multiplier}$ (candidate pool size). Merged via RRF. |
+
+---
+
+## 8. Verification & Reference Implementation
+
+- **Unit Test Suite**: `tests/` contains 13 automated tests (`test_invariants.py`, `test_search_hybrid.py`, `test_sanitize.py`, `test_fill_and_search_example.py`).
+- **Build Checks**: `_verify/check.py` validates colocated (`build-check.yaml`) and split-topology (`build-check-split.yaml`) configurations with zero network substrate.
+- **End-to-End Example**: `examples/fill-and-search/` provides a complete, runnable demonstration (`run_demo.py`, `workflow.yaml`, `sweep.yaml`, `vectorize.yaml`, `search.yaml`) exercising hot memory planting, sweep migration, vectorize batching, and hybrid search against live Redis Stack.

@@ -269,4 +269,5 @@ $$\text{RRF\_Score}(d) = \sum_{m \in \{\text{text}, \text{semantic}\}} \frac{1}{
 
 - **Zero-Substrate Build Check**: Verified via `_verify/check.py` against deliberately invalid Redis URLs (`127.0.0.1:1`), ensuring builder laziness and Pydantic schema validation.
 - **Dual-Topology Build Check**: Verified under both single-URL colocated configurations (`build-check.yaml`) and split dual-URL configurations (`build-check-split.yaml`).
+- **End-to-End Fill & Search Example**: Verified via `examples/fill-and-search/run_demo.py` against live Redis Stack, demonstrating hot-tier turn planting, sweep migration, vectorization, and hybrid RRF retrieval.
 - **End-to-End Acceptance**: Verified as stage `with-semantic-memory` in the h-network acceptance progression ([ADR-006](../../docs/adrs/ADR-006-acceptance-rounds.md)).
