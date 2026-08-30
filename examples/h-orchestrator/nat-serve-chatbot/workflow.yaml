@@ -31,6 +31,20 @@ llms:
     temperature: 0.0
     request_timeout: 120
 
+function_groups:
+  junos_mcp:
+    _type: mcp_client
+    server:
+      transport: streamable-http
+      url: ${JUNOS_MCP_URL}
+      custom_headers:
+        Authorization: Bearer ${JUNOS_MCP_TOKEN}
+    include:
+      - gather_device_facts
+      - get_junos_config
+      - get_router_list
+      - junos_config_diff
+
 functions:
   delete_chat:
     _type: h_memory_delete_chat
@@ -45,6 +59,46 @@ functions:
     agent: ${H_NAT_CHATBOT_AGENT}
     rrf_k: 60
     candidate_pool_multiplier: 2
+
+  network_gate:
+    _type: h_asimov_gate
+    llm_name: chatbot_llm
+    fail_open: false
+    ground_rules_inline: |
+      Allow read-only network inspection explicitly requested by the operator.
+      Deny destructive, disruptive, credential-accessing, or unrequested device
+      operations. Configuration changes require clear operator intent, bounded
+      targets, and reviewable content. When the effect is unclear, deny.
+
+  gated_execute_junos_command:
+    _type: h_gated_mcp_tool
+    mcp_group: junos_mcp
+    gate_fn: network_gate
+    mcp_tool_name: execute_junos_command
+
+  gated_execute_junos_pfe_command:
+    _type: h_gated_mcp_tool
+    mcp_group: junos_mcp
+    gate_fn: network_gate
+    mcp_tool_name: execute_junos_pfe_command
+
+  gated_execute_junos_command_batch:
+    _type: h_gated_mcp_tool
+    mcp_group: junos_mcp
+    gate_fn: network_gate
+    mcp_tool_name: execute_junos_command_batch
+
+  gated_render_and_apply_j2_template:
+    _type: h_gated_mcp_tool
+    mcp_group: junos_mcp
+    gate_fn: network_gate
+    mcp_tool_name: render_and_apply_j2_template
+
+  gated_load_and_commit_config:
+    _type: h_gated_mcp_tool
+    mcp_group: junos_mcp
+    gate_fn: network_gate
+    mcp_tool_name: load_and_commit_config
 
   semantic_sweep:
     _type: h_semantic_sweep
@@ -65,7 +119,14 @@ functions:
   chatbot_agent:
     _type: tool_calling_agent
     llm_name: chatbot_llm
-    tool_names: [recall_search]
+    tool_names:
+      - recall_search
+      - junos_mcp
+      - gated_execute_junos_command
+      - gated_execute_junos_pfe_command
+      - gated_execute_junos_command_batch
+      - gated_render_and_apply_j2_template
+      - gated_load_and_commit_config
     handle_tool_errors: true
     max_iterations: 6
     system_prompt: |
@@ -77,6 +138,10 @@ functions:
       Do not call recall_search for general knowledge, greetings, arithmetic,
       or facts already present in recent context. Never invent remembered
       facts.
+      Use the Junos inspection tools for requested network facts. Device
+      command, PFE, batch, template, and commit operations are exposed only
+      through safety-gated tools; report denials without bypassing, splitting,
+      or rephrasing denied operations.
 
 workflow:
   _type: h_chat_cycle

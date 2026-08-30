@@ -3,6 +3,9 @@ H_NAT_LLM_MODEL: your-openai-compatible-model
 H_NAT_LLM_BASE_URL: http://127.0.0.1:8000/v1
 OPENAI_API_KEY: EMPTY
 
+JUNOS_MCP_URL: https://your-junos-mcp-server.example/mcp/
+JUNOS_MCP_TOKEN: replace-with-an-authorized-token
+
 H_NAT_REDIS_URL: redis://127.0.0.1:6379
 H_NAT_CHATBOT_POD: chatbot
 H_NAT_CHATBOT_AGENT: assistant

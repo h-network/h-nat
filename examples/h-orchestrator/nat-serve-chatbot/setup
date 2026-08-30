@@ -175,6 +175,9 @@ printf 'Selected model: %s\n' "$setup_llm_model"
 
 prompt setup_redis_url "Redis Stack URL" "redis://127.0.0.1:6379"
 [[ "$setup_redis_url" =~ ^rediss?://[^[:space:]]+$ ]] || fail "The Redis URL must start with redis:// or rediss://."
+prompt setup_junos_url "Junos MCP server URL"
+[[ "$setup_junos_url" =~ ^https?://[^[:space:]]+$ ]] || fail "The Junos MCP URL must start with http:// or https://."
+prompt setup_junos_token "Junos MCP token (input hidden)" "" true
 prompt setup_port "Local NAT HTTP port" "8080"
 [[ "$setup_port" =~ ^[0-9]+$ ]] && (( setup_port >= 1 && setup_port <= 65535 )) || fail "Port must be between 1 and 65535."
 prompt setup_memory_chat_id "Backend memory chat ID" "telegram-$setup_chat_id"
@@ -187,6 +190,8 @@ umask 077
     printf 'H_NAT_LLM_BASE_URL: %s\n' "$(yaml_quote "$setup_llm_url")"
     printf 'OPENAI_API_KEY: %s\n' "$(yaml_quote "$setup_api_key")"
     printf 'H_NAT_REDIS_URL: %s\n' "$(yaml_quote "$setup_redis_url")"
+    printf 'JUNOS_MCP_URL: %s\n' "$(yaml_quote "$setup_junos_url")"
+    printf 'JUNOS_MCP_TOKEN: %s\n' "$(yaml_quote "$setup_junos_token")"
     printf "H_NAT_CHATBOT_POD: 'chatbot'\n"
     printf "H_NAT_CHATBOT_AGENT: 'assistant'\n"
     printf 'H_NAT_CHATBOT_CHAT_ID: %s\n' "$(yaml_quote "$setup_memory_chat_id")"
@@ -204,6 +209,8 @@ export H_NAT_LLM_MODEL="$setup_llm_model"
 export H_NAT_LLM_BASE_URL="$setup_llm_url"
 export OPENAI_API_KEY="$setup_api_key"
 export H_NAT_REDIS_URL="$setup_redis_url"
+export JUNOS_MCP_URL="$setup_junos_url"
+export JUNOS_MCP_TOKEN="$setup_junos_token"
 export H_NAT_CHATBOT_POD=chatbot
 export H_NAT_CHATBOT_AGENT=assistant
 export H_NAT_CHATBOT_CHAT_ID="$setup_memory_chat_id"

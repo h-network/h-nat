@@ -34,6 +34,9 @@ maintenance functions as separate REST endpoints.
 - Install `h-memory`, `h-recall`, `h-orchestrator`, and NAT's LangChain plugin.
 - Run Redis Stack with RedisJSON and RediSearch.
 - Provide an OpenAI Chat Completions-compatible model with native tool calling.
+- Provide an authorized Junos MCP endpoint and token. Raw inspection tools are
+  allowlisted; every execution-capable tool is wrapped by a fail-closed
+  h-asimov gate.
 
 Set the variables shown in `vars.example.yaml`. The pod, agent, and chat ID
 must remain identical across the chat cycle, search tool, and maintenance
@@ -83,6 +86,17 @@ with mode `600`, discovers the real model list from the LLM server's
 OpenAI-compatible `/v1/models` endpoint, validates and starts NAT, checks
 `/health` and Telegram `getMe`, and starts the bridge. Press Ctrl-C to stop
 both processes. Runtime logs are written beside the script and ignored by Git.
+
+The chatbot agent can use Junos MCP inspection tools alongside memory recall.
+Execution, PFE, batch, template, and commit tools are never exposed raw: each
+request goes through `h_gated_mcp_tool` and `h_asimov_gate` with
+`fail_open: false`. Do not add those raw members to `junos_mcp.include`.
+
+The gated path was verified live on 2026-08-30 against lab Junos routers. A
+Telegram BGP-status request produced an h-asimov `asimov_allow` audit event
+before the MCP command ran. Later ambiguous and unbounded BGP configuration
+requests produced `asimov_deny` events and never reached the underlying MCP
+tool, demonstrating both allow and fail-closed denial paths.
 
 The full setup flow was verified on 2026-08-30 with a dedicated test bot: model
 discovery returned the served model, NAT passed `/health`, Telegram `getMe`
