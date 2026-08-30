@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest>=8.0", "pytest-asyncio>=0.23"]
+test = ["pytest>=8.0", "pytest-asyncio>=0.23", "PyYAML>=6.0"]
 
 [project.entry-points."nat.components"]
 h_asimov = "nat.plugins.h_asimov.register"

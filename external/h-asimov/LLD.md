@@ -27,16 +27,22 @@ external/h-asimov/
 │       ├── denylist.py             # ported: Layer 1
 │       ├── asimov.py               # ported + reworked: Layer 2, NAT LLM transport
 │       └── noop.py                 # ported: always-ALLOW variant
-└── tests/
-    ├── conftest.py
-    ├── test_firewall.py
-    ├── test_denylist.py
-    ├── test_asimov.py
-    ├── test_noop_firewall.py
-    └── test_register.py            # new: AsimovGateConfig + h_asimov_gate builder
+├── tests/
+│   ├── conftest.py
+│   ├── test_firewall.py
+│   ├── test_denylist.py
+│   ├── test_asimov.py
+│   ├── test_noop_firewall.py
+│   ├── test_register.py            # AsimovGateConfig + h_asimov_gate builder
+│   └── test_standalone_gate_example.py  # structural checks on examples/standalone-gate/*.yaml
+└── examples/standalone-gate/
+    ├── workflow.yaml                # mode=asimov entry point (no wrapping tool)
+    ├── noop.yaml                    # mode=noop entry point
+    ├── run_demo.py                  # live ALLOW/DENY/fail-closed driver against a real LLM
+    └── README.md
 ```
 
-Installable and importable: `pip install -e external/h-asimov` (or a built wheel) registers `h_asimov_gate` under the `nat.components` entry point. Verified directly (this branch): `pip install -e .` succeeds, `python -m pytest tests/` passes 50/50, and a real (non-editable) wheel build (`python -m build --wheel`) installs cleanly into a fresh venv with `importlib.resources` correctly resolving the packaged `defaults/` files — see §5.3 and §5.5 for why that packaging detail needed a deliberate decision rather than a straight port.
+Installable and importable: `pip install -e external/h-asimov` (or a built wheel) registers `h_asimov_gate` under the `nat.components` entry point. Verified directly (this branch): `pip install -e .` succeeds, `python -m pytest tests/` passes 57/57, and a real (non-editable) wheel build (`python -m build --wheel`) installs cleanly into a fresh venv with `importlib.resources` correctly resolving the packaged `defaults/` files — see §5.3 and §5.5 for why that packaging detail needed a deliberate decision rather than a straight port. `examples/standalone-gate/run_demo.py` is verified against a real OpenAI-compatible endpoint (self-hosted vLLM, `nemotron-lightning`) — see §5.10 and the example's own README.md for the transcript.
 
 ---
 
@@ -149,7 +155,8 @@ Package name differs deliberately from the predecessor: `nat.plugins.h_network_a
 | `GateDecision` (output schema) | **Built** | Not in the predecessor's spec docstring in this exact shape — see §5.7 for the `gate_error` layer value. |
 | `h_asimov_gate` builder (`register.py` body) | **Built** | The predecessor's `register.py` was a stub (`raise NotImplementedError`); the implementation here is entirely new, following its spec docstring's YAML shape plus the `mode` extension (§5.6). |
 | Audit/telemetry wiring | **Built, minimally** | Predecessor's `emit_event` callback had no concrete sink either. Here it logs structured events via `logging.getLogger(__name__).info(...)` (same shape as `h-memory`'s "structured logging" pattern). Wiring to a real telemetry sink (e.g. a Phoenix span, if NAT's own observability surface calls for one) is still open — not attempted here, since it wasn't ticket scope and NAT's own tool/function code in the installed `nvidia-nat` package uses plain `logging` too, not a bespoke span API. |
-| Tests | **Ported + extended** | `test_firewall.py`, `test_denylist.py`, `test_noop_firewall.py` port with import-path updates; the predecessor's env-based/`from_env` test cases in each are replaced with the config-driven equivalents. `test_asimov.py`'s parser tests port with a text-instead-of-JSON-bytes adaptation; its `from_env`/raw-HTTP tests are replaced with `evaluate()`-level tests against a fake LLM client. `test_register.py` is new — no predecessor coverage exists for the builder. 50/50 tests pass (verified this branch). |
+| Tests | **Ported + extended** | `test_firewall.py`, `test_denylist.py`, `test_noop_firewall.py` port with import-path updates; the predecessor's env-based/`from_env` test cases in each are replaced with the config-driven equivalents. `test_asimov.py`'s parser tests port with a text-instead-of-JSON-bytes adaptation; its `from_env`/raw-HTTP tests are replaced with `evaluate()`-level tests against a fake LLM client. `test_register.py` and `test_standalone_gate_example.py` are new — no predecessor coverage exists for either. 57/57 tests pass (verified this branch). |
+| `examples/standalone-gate/` | **New** | Predecessor has no NAT-runnable examples at all (its `register.py` was a stub, nothing to run). This is new work, verified against a real LLM endpoint, not just `nat validate` — see §5.10. |
 
 ---
 
@@ -207,3 +214,8 @@ This section records places where the predecessor's own documentation/config dis
 - **Fix**: added `_gate_decision_to_str(decision: GateDecision) -> str: return decision.model_dump_json()` and passed it via `FunctionInfo.from_fn(_gate, ..., converters=[_gate_decision_to_str])`.
 - **Regression coverage**: `test_register.py`'s new "NAT output conversion path" tests build a real `nat.builder.function.LambdaFunction` from the yielded `FunctionInfo` (via `LambdaFunction.from_info`) and call `.ainvoke(command, to_type=str)` — the same call shape `nat run`'s console front end uses — for the ALLOW, DENY, and noop-mode cases, plus one test confirming the no-`to_type` default path still returns a raw `GateDecision` unchanged. Verified these fail with the exact reported error when the converter is removed, and pass with it in place.
 - **Status**: resolved.
+
+### 5.10 `examples/standalone-gate/` — verified against a real endpoint, not just `nat validate`
+- **What was verified, concretely**: `nat validate` on both `workflow.yaml` and `noop.yaml`; then three live `nat run` invocations against a real OpenAI-compatible endpoint (self-hosted vLLM, model `nemotron-lightning`, provided by the architect — same endpoint the other modules' examples use): an unambiguous benign command (`layer=passthrough`, `verdict=ALLOW`), an unambiguous destructive command (`verdict=DENY`, `layer=L2_asimov`, a real judge-generated `reason`), and the same benign command with the judge endpoint pointed at an unreachable address to confirm `fail_open: false` actually denies closed (`layer=gate_error`) rather than that behavior only existing on paper. Re-ran twice to confirm verdict/layer stability across calls (the free-text `reason` wording varies run to run, as expected from a live model; the verdict and layer did not). `noop.yaml` was also run live against the same destructive command, confirming it ALLOWs without any LLM call and still emits `gate_skipped`.
+- **Why this matters as its own log entry**: the ticket that requested this example explicitly called out "verify it actually works against a real LLM before pushing, not just `nat validate`" — worth recording that this was done, and how, rather than just asserting it in a commit message.
+- **Status**: resolved — `run_demo.py`'s transcript in this section and in `examples/standalone-gate/README.md` is real output, not hand-written.
