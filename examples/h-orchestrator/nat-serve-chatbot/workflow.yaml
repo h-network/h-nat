@@ -128,7 +128,7 @@ functions:
       - gated_render_and_apply_j2_template
       - gated_load_and_commit_config
     handle_tool_errors: true
-    max_iterations: 6
+    max_iterations: 50
     system_prompt: |
       You are a concise conversational assistant. Answer from the recent
       conversation when it contains enough information. When the user asks
