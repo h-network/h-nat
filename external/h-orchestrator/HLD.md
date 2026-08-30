@@ -24,7 +24,7 @@ not confused.
 
 ## Public interface
 
-Six NAT function types are implemented. h-ramp-dependent predecessor
+Seven NAT function types are implemented. h-ramp-dependent predecessor
 functions are deferred because h-ramp has no public package contract in the
 five-module `h-nat` plan.
 
@@ -36,6 +36,7 @@ five-module `h-nat` plan.
 | `claude_stream` | Implemented | `str -> str` | Consume Claude stream-json events and return the final assistant text. |
 | `h_chat_cycle` | Implemented | typed chat input -> typed chat output | Read bounded history, call a configured NAT dispatcher, and persist the new turn. |
 | `h_ssh_exec` | Implemented | host + command -> typed execution result | Gate an exact target/command with `h_asimov_gate`, then execute it directly over SSH using deployment credentials. |
+| `h_gated_mcp_tool` | Implemented | live MCP input schema -> typed gated result | Wrap one non-public MCP group member and enforce `h_asimov_gate` before nested invocation. |
 | `claude_via_hramp` | Deferred | `str -> str` | Would dispatch a Claude CLI command through h-ramp without memory composition. |
 | `h_claude_cycle` | Deferred | typed chat input -> typed chat output | Would read bounded history, dispatch Claude through h-ramp, and persist the new turn. |
 
@@ -63,6 +64,8 @@ NAT workflow / API caller
                                   -> dispatcher ----------------+
           |
           +-- gated SSH -> h-asimov -> direct network target
+          |
+          +-- gated MCP member -> h-asimov -> hidden mcp_client member
 ```
 
 `h-orchestrator` fits between NAT workflows and an execution transport:
@@ -79,6 +82,9 @@ NAT workflow / API caller
   SSH tool owns enforcement and never sends credentials to the judge.
 - NAT supplies plugin discovery, configuration models, function registration,
   type conversion, and tracing integration.
+- `nvidia-nat-mcp` supplies MCP discovery, transport, and live member schemas.
+  An explicit group allowlist separates public inspection members from hidden
+  execution-capable members used only by gated wrappers.
 
 ## Design boundaries
 
