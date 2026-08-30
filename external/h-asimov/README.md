@@ -35,6 +35,13 @@ tests/
   test_register.py      # AsimovGateConfig validation + h_asimov_gate builder
   conftest.py
 
+examples/
+  standalone-gate/       # h_asimov_gate on its own, verified against a real LLM
+    workflow.yaml          # mode=asimov (denylist + LLM judge)
+    noop.yaml              # mode=noop (audited opt-out)
+    run_demo.py            # live ALLOW / DENY / fail-closed driver
+    README.md
+
 pyproject.toml
 requirements.txt
 requirements-test.txt
@@ -73,3 +80,7 @@ functions:
 `h_asimov_gate` is a pure judge: it takes a `command: str` and returns
 a typed `GateDecision` (verdict/layer/reason). It does not execute
 anything — the caller's workflow decides what to do with the verdict.
+
+See `examples/standalone-gate/` for a runnable, real-LLM-verified
+demonstration of all three verdict shapes (ALLOW, judge DENY,
+fail-closed DENY) plus the `mode: noop` opt-out.
