@@ -1,0 +1,2 @@
+nvidia-nat>=1.6,<2
+nvidia-nat-langchain>=1.6,<2

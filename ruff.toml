@@ -1,0 +1,6 @@
+target-version = "py311"
+line-length = 120
+
+# Ruff's real default rule selection (no `select` override) -- the whole
+# repo was cleaned up to pass this exact ruleset, so the lint job blocks
+# the test matrix on any violation.

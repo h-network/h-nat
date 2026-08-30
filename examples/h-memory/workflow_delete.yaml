@@ -1,0 +1,5 @@
+workflow:
+  _type: h_memory_delete_chat
+  redis_url: ${H_NAT_REDIS_URL}
+  pod: example-pod
+  agent: example-agent

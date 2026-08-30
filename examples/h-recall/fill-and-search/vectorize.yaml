@@ -1,0 +1,14 @@
+functions:
+  vectorize:
+    _type: h_semantic_vectorize
+    redis_url: ${H_NAT_REDIS_URL}
+    pod: recall_demo
+    agent: assistant
+
+workflow:
+  _type: h_semantic_vectorize
+  redis_url: ${H_NAT_REDIS_URL}
+  pod: recall_demo
+  agent: assistant
+  batch_size: 64
+  max_per_cycle: 0

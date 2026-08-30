@@ -1,0 +1,14 @@
+functions:
+  search:
+    _type: h_semantic_search
+    redis_url: ${H_NAT_REDIS_URL}
+    pod: bench_recall
+    agent: assistant
+
+workflow:
+  _type: h_semantic_search
+  redis_url: ${H_NAT_REDIS_URL}
+  pod: bench_recall
+  agent: assistant
+  rrf_k: 60
+  candidate_pool_multiplier: 2

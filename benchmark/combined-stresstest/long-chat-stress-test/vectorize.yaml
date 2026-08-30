@@ -1,0 +1,7 @@
+workflow:
+  _type: h_semantic_vectorize
+  redis_url: ${H_NAT_REDIS_URL}
+  pod: ${H_NAT_STRESS_POD}
+  agent: ${H_NAT_STRESS_AGENT}
+  batch_size: ${H_NAT_STRESS_VECTORIZE_BATCH_SIZE}
+  max_per_cycle: 0

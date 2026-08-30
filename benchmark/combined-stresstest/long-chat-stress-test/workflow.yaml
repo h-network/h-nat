@@ -1,0 +1,58 @@
+llms:
+  stress_llm:
+    _type: openai
+    model_name: ${H_NAT_LLM_MODEL}
+    base_url: ${H_NAT_LLM_BASE_URL}
+    api_key: ${OPENAI_API_KEY}
+    temperature: 0.0
+    request_timeout: 120
+
+functions:
+  recall_search:
+    _type: h_semantic_search
+    redis_url: ${H_NAT_REDIS_URL}
+    pod: ${H_NAT_STRESS_POD}
+    agent: ${H_NAT_STRESS_AGENT}
+    rrf_k: 60
+    candidate_pool_multiplier: 2
+
+  semantic_sweep:
+    _type: h_semantic_sweep
+    redis_url: ${H_NAT_REDIS_URL}
+    pod: ${H_NAT_STRESS_POD}
+    agent: ${H_NAT_STRESS_AGENT}
+    migration_threshold_sec: ${H_NAT_STRESS_MIGRATION_THRESHOLD_SEC}
+    max_per_cycle: 0
+
+  semantic_vectorize:
+    _type: h_semantic_vectorize
+    redis_url: ${H_NAT_REDIS_URL}
+    pod: ${H_NAT_STRESS_POD}
+    agent: ${H_NAT_STRESS_AGENT}
+    batch_size: ${H_NAT_STRESS_VECTORIZE_BATCH_SIZE}
+    max_per_cycle: 0
+
+  stress_agent:
+    _type: tool_calling_agent
+    llm_name: stress_llm
+    tool_names: [recall_search]
+    handle_tool_errors: true
+    max_iterations: 4
+    system_prompt: |
+      You are the assistant in a long-running technical conversation. Answer
+      from the recent conversation when it contains enough information. When
+      the user asks about an earlier personal fact that is no longer present,
+      call recall_search with chat_id "${H_NAT_CHAT_ID}", a concise semantic
+      query, top_k 5, and mode "hybrid". Use the retrieved conversation turns
+      to answer precisely. Do not call recall_search for general knowledge,
+      arithmetic, greetings, or facts already present in recent context.
+
+workflow:
+  _type: h_chat_cycle
+  dispatcher: stress_agent
+  chat_id: ${H_NAT_CHAT_ID}
+  pod: ${H_NAT_STRESS_POD}
+  agent: ${H_NAT_STRESS_AGENT}
+  redis_url: ${H_NAT_REDIS_URL}
+  hot_keep_count: ${H_NAT_STRESS_HOT_KEEP_COUNT}
+  ttl_seconds: 86400

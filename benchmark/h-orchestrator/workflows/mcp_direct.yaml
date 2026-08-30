@@ -1,0 +1,25 @@
+llms:
+  bench_llm:
+    _type: openai
+    model_name: ${H_NAT_LLM_MODEL}
+    base_url: ${H_NAT_LLM_BASE_URL}
+    api_key: ${OPENAI_API_KEY}
+    temperature: 0.0
+
+function_groups:
+  direct_mcp:
+    _type: mcp_client
+    server:
+      transport: streamable-http
+      url: ${H_NAT_BENCH_MCP_URL}
+      custom_headers:
+        Authorization: Bearer ${H_NAT_BENCH_MCP_TOKEN}
+    include:
+      - ${H_NAT_BENCH_MCP_TOOL}
+
+workflow:
+  _type: tool_calling_agent
+  llm_name: bench_llm
+  tool_names: [direct_mcp]
+  max_iterations: 4
+  system_prompt: Use the one available harmless benchmark tool exactly once.

@@ -1,0 +1,42 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=64", "setuptools-scm>=8", "setuptools_dynamic_dependencies>=1.0.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["nat.*"]
+
+[project]
+name = "h-memory"
+version = "0.1.0"
+requires-python = ">=3.11,<3.14"
+description = "NAT plugin: TTL-bounded hot-tier per-chat conversation memory — backed by redis. Part of the h-nat suite."
+readme = "README.md"
+keywords = ["nat", "nemo-agent-toolkit", "redis", "memory", "state", "agents", "h-nat", "h-network"]
+license = { text = "TBD" }
+authors = [{ name = "h-network" }]
+maintainers = [{ name = "h-network" }]
+classifiers = [
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+  "redis>=5,<8",
+  "pydantic>=2.0",
+]
+
+[project.urls]
+homepage = "https://h-network.nl"
+source = "https://github.com/h-network/h-nat"
+
+[project.entry-points."nat.components"]
+h_memory = "nat.plugins.h_memory.register"
+h_network_memory = "nat.plugins.h_network_memory.register"
+
+[project.optional-dependencies]
+test = [
+  "pytest>=8.0",
+  "pytest-asyncio>=0.23",
+]

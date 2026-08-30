@@ -1,0 +1,45 @@
+# Build-check workflow YAML — split-topology variant.
+#
+# Demonstrates the dual-Redis sweep config: ``redis_url`` points at the
+# audit-tier (vector) Redis; ``hot_redis_url`` points at memory module's
+# substrate. Both URLs are deliberately unreachable
+# (``:1`` and ``:2`` — always refused) so a positive build-check PASS
+# empirically demonstrates that the builders are lazy under the split
+# topology too (no eager Redis call on either client).
+#
+# Sister to ``build-check.yaml`` (colocated topology). The Python
+# harness in ``check.py`` exercises both YAMLs.
+
+general:
+  use_uvloop: true
+
+functions:
+  search:
+    _type: h_semantic_search
+    redis_url: redis://127.0.0.1:1
+    pod: r67-pod
+    agent: r67-agent
+
+  sweep:
+    _type: h_semantic_sweep
+    redis_url: redis://127.0.0.1:1
+    hot_redis_url: redis://127.0.0.1:2
+    pod: r67-pod
+    agent: r67-agent
+    migration_threshold_sec: 60
+    max_per_cycle: 0
+
+  vectorize:
+    _type: h_semantic_vectorize
+    redis_url: redis://127.0.0.1:1
+    pod: r67-pod
+    agent: r67-agent
+    batch_size: 32
+    max_per_cycle: 0
+
+workflow:
+  _type: h_semantic_sweep
+  redis_url: redis://127.0.0.1:1
+  hot_redis_url: redis://127.0.0.1:2
+  pod: r67-pod
+  agent: r67-agent

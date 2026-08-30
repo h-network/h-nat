@@ -1,0 +1,39 @@
+# Benchmark Configuration for h-memory
+redis:
+  url: redis://localhost:6379
+
+tenant:
+  pod: bench-pod
+  agent: stress-agent
+
+settings:
+  ttl_seconds_max: 86400
+
+# Benchmark Scenario Parameters
+scenarios:
+  throughput:
+    total_writes: 5000
+    concurrency_levels: [10, 50, 100, 200]
+    payload_size_bytes: 256
+    ttl_seconds: 300
+
+  concurrent_same_chat:
+    writers: 50
+    writes_per_writer: 20
+    ttl_seconds: 300
+
+  rank_prune:
+    total_writes: 200
+    writers: 20
+    hot_keep_count: 25
+    ttl_seconds: 300
+
+  ttl_boundary:
+    short_ttl_seconds: 1
+    writes: 50
+    wait_seconds: 1.5
+
+  delete_race:
+    active_writers: 10
+    writes_per_writer: 30
+    delay_before_delete_ms: 20

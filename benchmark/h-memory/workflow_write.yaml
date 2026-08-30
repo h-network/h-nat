@@ -1,0 +1,7 @@
+workflow:
+  _type: h_memory_write_turn
+  redis_url: ${H_NAT_REDIS_URL:-redis://localhost:6379}
+  pod: ${H_NAT_POD:-bench-pod}
+  agent: ${H_NAT_AGENT:-stress-agent}
+  ttl_seconds_max: 86400
+

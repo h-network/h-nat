@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.discover.outputs.modules }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - id: discover
+        run: echo "modules=$(python3 ci/scripts/discover_modules.py --json)" >> "$GITHUB_OUTPUT"
+
+  lint:
+    runs-on: ubuntu-latest
+    # Blocking: the whole repo is clean under ruff's real default ruleset
+    # (ruff.toml), so a failure here is a real regression, not noise.
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - run: pip install -q "ruff==0.16.5"
+      - env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: ./ci/scripts/lint.sh
+
+  test:
+    needs: [discover, lint]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJson(needs.discover.outputs.modules) }}
+    name: test (${{ matrix.module }})
+    # Only h-memory's test suite currently needs a live Redis (its
+    # h_memory_write_turn/h_memory_delete_chat integration tests connect for
+    # real -- the config's redis_url field defaults to redis://localhost:6379
+    # regardless of env vars, hence port 6379 here). No module's tests
+    # currently exercise RediSearch/RedisJSON for real (h-recall's tests are
+    # fakeredis/mocked, never reach a real connection) -- using the Stack
+    # image anyway since it's a strict superset and this is the natural place
+    # to provision it once that changes. Harmless for the other modules.
+    services:
+      redis:
+        image: redis/redis-stack-server:7.4.0-v8
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - id: slug
+        run: echo "slug=$(echo '${{ matrix.module }}' | tr '/' '-')" >> "$GITHUB_OUTPUT"
+      - run: python3 ci/scripts/run_tests.py --project "${{ matrix.module }}" --reports-dir .artifacts/junit
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: junit-${{ steps.slug.outputs.slug }}
+          path: .artifacts/junit/*.xml
+          if-no-files-found: ignore
+
+  report:
+    needs: [test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: junit-*
+          path: .artifacts/junit
+          merge-multiple: true
+      - run: pip install -q junitparser
+      - run: |
+          junitparser merge --glob '.artifacts/junit/*.xml' combined-junit.xml
+          python3 -c "
+          from junitparser import JUnitXml
+          xml = JUnitXml.fromfile('combined-junit.xml')
+          print(f'{xml.tests} tests, {xml.failures} failed, {xml.errors} errors, {xml.skipped} skipped')
+          "
+      - uses: actions/upload-artifact@v7
+        with:
+          name: junit-combined
+          path: combined-junit.xml
+          if-no-files-found: ignore

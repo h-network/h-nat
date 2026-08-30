@@ -1,0 +1,27 @@
+# Benchmark configuration variables for h-recall stress and accuracy benchmark.
+# Copy to vars.yaml and customize for your environment.
+
+# Target Redis Stack endpoint (must have RediSearch and RedisJSON loaded).
+# Set to your local instance or the operator lab Redis Stack endpoint (e.g. redis://172.16.10.102:6379).
+redis_url: redis://127.0.0.1:6379
+
+# Optional separate hot-tier Redis URL for split topology testing.
+# Set null to test colocated single-instance Redis Stack.
+hot_redis_url: null
+
+# Pod and Agent scope identifiers
+pod: bench_recall
+agent: assistant
+
+# Volume stress test scale (number of background documents in haystack scenario)
+scale_doc_count: 500
+
+# Concurrency workers for concurrent write / sweep / vectorize stress test
+concurrency_workers: 8
+
+# Batch size for vectorization benchmark
+vectorize_batch_size: 64
+
+# RRF fusion parameters
+rrf_k: 60
+candidate_pool_multiplier: 2

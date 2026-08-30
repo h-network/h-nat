@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "h-asimov"
+version = "0.1.0"
+description = "NAT plugin: pre-flight LLM safety judge — gates a command against a configurable rules document via an LLM call. Workflow-callable as _type: h_asimov_gate."
+requires-python = ">=3.11"
+license = { text = "TBD" }
+authors = [{ name = "h-network" }]
+readme = "README.md"
+keywords = ["nat", "nemo-agent-toolkit", "firewall", "safety", "asimov", "h-network"]
+
+dependencies = [
+    "nvidia-nat>=1.6,<2",
+    "nvidia-nat-langchain>=1.6,<2",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0", "pytest-asyncio>=0.23", "PyYAML>=6.0"]
+
+[project.entry-points."nat.components"]
+h_asimov = "nat.plugins.h_asimov.register"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["nat.*"]
+
+[tool.setuptools.package-data]
+"nat.plugins.h_asimov" = ["defaults/*.txt", "defaults/*.md"]

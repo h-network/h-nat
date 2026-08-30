@@ -1,0 +1,30 @@
+# Copy to vars.yaml and customize. The load driver maps these values to the
+# H_NAT_* environment variables referenced by workflow.yaml.
+
+llm:
+  model: your-openai-compatible-model
+  base_url: http://127.0.0.1:8000/v1
+  api_key: EMPTY
+
+redis_url: redis://127.0.0.1:6379
+
+tenant:
+  pod: combined-stress
+  agent: assistant
+
+# h-memory stores one record per user or assistant message. A value of 24
+# therefore retains roughly the latest 12 user/assistant exchanges and forces
+# early facts out of the hot prompt long before the recall probes.
+hot_keep_count: 24
+
+maintenance:
+  migration_threshold_sec: 1
+  vectorize_batch_size: 64
+
+# The driver selects the matching chat_id for each persona. Both tiers use the
+# same pod, agent, and selected chat_id, preventing cross-persona retrieval.
+personas:
+  halil:
+    chat_id: long-chat-halil
+  ibrahim:
+    chat_id: long-chat-ibrahim

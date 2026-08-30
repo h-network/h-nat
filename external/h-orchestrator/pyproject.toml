@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "h-orchestrator"
+version = "0.1.0"
+description = "NeMo Agent Toolkit functions for sandboxed CLI execution and gated orchestration"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+license = {text = "TBD"}
+authors = [{name = "h-network"}]
+dependencies = [
+  "h-asimov",
+  "h-memory",
+  "nvidia-nat-core>=1.8,<2",
+  "nvidia-nat-mcp>=1.8,<2",
+  "pydantic>=2,<3",
+  "redis>=7.1,<8",
+]
+
+[project.optional-dependencies]
+openshell = [
+  "h-openshell",
+]
+test = [
+  "nvidia-nat-test>=1.8,<2",
+  "pytest>=8",
+  "pytest-asyncio>=0.24",
+]
+example = [
+  "h-recall",
+  "nvidia-nat[langchain]>=1.8,<2",
+]
+
+[project.entry-points."nat.plugins"]
+h_orchestrator = "nat.plugins.h_orchestrator.register"
+
+[project.entry-points."nat.orchestrator.output_parsers"]
+raw = "nat.plugins.h_orchestrator.parsers.raw:RawParser"
+claude_json = "nat.plugins.h_orchestrator.parsers.claude_json:ClaudeJsonParser"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["nat.plugins.h_orchestrator*"]
+namespaces = true
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["src"]

@@ -1,0 +1,523 @@
+import asyncio
+import importlib
+import json
+import sys
+from contextlib import asynccontextmanager
+from types import ModuleType, SimpleNamespace
+
+import pytest
+from pydantic import BaseModel, ValidationError
+
+
+class FunctionBaseConfig(BaseModel):
+    def __init_subclass__(cls, name=None, **kwargs):
+        super().__init_subclass__(**kwargs)
+        cls.nat_name = name
+
+
+class FunctionInfo:
+    @classmethod
+    def from_fn(cls, function, description="", **kwargs):
+        return SimpleNamespace(
+            single_fn=function, description=description, **kwargs
+        )
+
+    @classmethod
+    def create(cls, *, single_fn, description="", **kwargs):
+        return SimpleNamespace(
+            single_fn=single_fn, description=description, **kwargs
+        )
+
+
+class FunctionGroup:
+    SEPARATOR = "__"
+
+    @staticmethod
+    def decompose(name):
+        return tuple(name.split(FunctionGroup.SEPARATOR, maxsplit=1))
+
+
+def _module(name, **attributes):
+    module = ModuleType(name)
+    for key, value in attributes.items():
+        setattr(module, key, value)
+    sys.modules[name] = module
+
+
+@pytest.fixture(scope="module")
+def register_module():
+    class BoundedBufferStore:
+        pass
+
+    def register_function(*, config_type):
+        return asynccontextmanager
+
+    _module(
+        "nat.plugin_api",
+        Builder=object,
+        FunctionBaseConfig=FunctionBaseConfig,
+        FunctionInfo=FunctionInfo,
+        FunctionGroup=FunctionGroup,
+        FunctionGroupRef=str,
+        FunctionRef=str,
+        register_function=register_function,
+    )
+    _module("nat.plugins.h_memory", BoundedBufferStore=BoundedBufferStore)
+    sys.modules.pop("nat.plugins.h_orchestrator.register", None)
+    return importlib.import_module("nat.plugins.h_orchestrator.register")
+
+
+def test_plugin_import_does_not_require_openshell(register_module):
+    assert register_module.AgentInvokeConfig.nat_name == "h_agent_invoke"
+
+
+def test_openshell_invocation_has_actionable_optional_extra_error(
+    register_module, monkeypatch
+):
+    monkeypatch.setitem(sys.modules, "nat.plugins.h_openshell", None)
+    with pytest.raises(RuntimeError, match=r"h-orchestrator\[openshell\]"):
+        register_module._client(
+            register_module.AgentInvokeConfig(sandbox="box", command="agent")
+        )
+
+
+def test_configs_are_strict_and_validate_delivery(register_module):
+    config = register_module.AgentInvokeConfig(sandbox="box", command="agent")
+    assert config.output_parser == "raw"
+    with pytest.raises(ValidationError):
+        register_module.AgentInvokeConfig(sandbox="box", command="agent", stale=True)
+    with pytest.raises(ValidationError):
+        register_module.AgentInvokeConfig(
+            sandbox="box", command="agent", prompt_via="env:BAD-NAME"
+        )
+
+
+def test_claude_wrapper_defaults_and_settings(register_module):
+    config = register_module.ClaudeInvokeConfig(
+        sandbox="box", hook_settings_path="/sandbox/settings.json"
+    )
+    assert config.command == "claude"
+    assert config.output_parser == "claude_json"
+    assert config.args[-2:] == ["--settings", "/sandbox/settings.json"]
+    assert "--no-session-persistence" in config.args
+
+
+@pytest.mark.asyncio
+async def test_unary_builder_is_lazy_and_closes_client(register_module, monkeypatch):
+    class Client:
+        closed = False
+
+        async def exec(self, sandbox, command, *, stdin, rpc_timeout):
+            return SimpleNamespace(exit_code=0, stdout_text="answer", stderr_text="")
+
+        async def close(self):
+            self.closed = True
+
+    client = Client()
+    calls = []
+    monkeypatch.setattr(register_module, "_client", lambda config: calls.append(config) or client)
+    config = register_module.AgentInvokeConfig(sandbox="box", command="agent")
+    generator = register_module._invoke_builder(config, "h_agent_invoke")
+    function_info = await anext(generator)
+    assert calls == []
+    assert await function_info.single_fn("hello") == "answer"
+    assert len(calls) == 1
+    await generator.aclose()
+    assert client.closed
+
+
+@pytest.mark.asyncio
+async def test_concurrent_first_invocations_share_one_client(register_module, monkeypatch):
+    class Client:
+        async def exec(self, sandbox, command, *, stdin, rpc_timeout):
+            await asyncio.sleep(0)
+            return SimpleNamespace(exit_code=0, stdout_text="answer", stderr_text="")
+
+        async def close(self):
+            pass
+
+    calls = []
+    monkeypatch.setattr(
+        register_module, "_client", lambda config: calls.append(config) or Client()
+    )
+    config = register_module.AgentInvokeConfig(sandbox="box", command="agent")
+    generator = register_module._invoke_builder(config, "h_agent_invoke")
+    function_info = await anext(generator)
+    assert await asyncio.gather(
+        function_info.single_fn("one"), function_info.single_fn("two")
+    ) == ["answer", "answer"]
+    assert len(calls) == 1
+    await generator.aclose()
+
+
+@pytest.mark.asyncio
+async def test_stream_builder_reports_missing_exit(register_module, monkeypatch):
+    class Event:
+        stdout = SimpleNamespace(data=b"chunk")
+
+        def WhichOneof(self, field):
+            return "stdout"
+
+    class Client:
+        async def exec_stream(self, *args, **kwargs):
+            yield Event()
+
+        async def close(self):
+            pass
+
+    monkeypatch.setattr(register_module, "_client", lambda config: Client())
+    config = register_module.AgentStreamConfig(sandbox="box", command="agent")
+    generator = register_module._stream_builder(config, "h_agent_stream")
+    function_info = await anext(generator)
+    chunks = [chunk async for chunk in function_info.single_fn("hello")]
+    assert chunks == ["chunk", "[exit_code=missing]"]
+    await generator.aclose()
+
+
+@pytest.mark.asyncio
+async def test_claude_stream_handles_split_utf8_json_lines(register_module):
+    module = sys.modules["nat.plugins.h_orchestrator.claude_stream"]
+    payload = '{"type":"result","is_error":false,"result":"café"}\n'.encode()
+
+    class Event:
+        def __init__(self, kind, data=None, exit_code=None):
+            self.kind = kind
+            if kind == "stdout":
+                self.stdout = SimpleNamespace(data=data)
+            if kind == "exit":
+                self.exit = SimpleNamespace(exit_code=exit_code)
+
+        def WhichOneof(self, field):
+            return self.kind
+
+    class Client:
+        async def exec_stream(self, *args, **kwargs):
+            split = payload.index(b"\xc3") + 1
+            yield Event("stdout", payload[:split])
+            yield Event("stdout", payload[split:])
+            yield Event("exit", exit_code=0)
+
+    config = module.ClaudeStreamConfig(sandbox="box")
+    assert await module.consume_claude_stream(Client(), config, "hello") == "café"
+
+
+@pytest.mark.asyncio
+async def test_claude_stream_reports_error_result(register_module):
+    module = sys.modules["nat.plugins.h_orchestrator.claude_stream"]
+
+    class Event:
+        def __init__(self, kind):
+            self.kind = kind
+            self.stdout = SimpleNamespace(
+                data=b'{"type":"result","is_error":true,"result":"denied"}\n'
+            )
+            self.exit = SimpleNamespace(exit_code=0)
+
+        def WhichOneof(self, field):
+            return self.kind
+
+    class Client:
+        async def exec_stream(self, *args, **kwargs):
+            yield Event("stdout")
+            yield Event("exit")
+
+    config = module.ClaudeStreamConfig(sandbox="box")
+    result = await module.consume_claude_stream(Client(), config, "hello")
+    assert result == "[claude_stream error: denied]"
+
+
+def test_chat_cycle_addressing_and_prompt(register_module):
+    module = sys.modules["nat.plugins.h_orchestrator.chat_cycle"]
+    config = module.HChatCycleConfig(
+        dispatcher="agent", chat_id="default", pod="pod", agent="agent"
+    )
+    request = module.HChatCycleInput(message="next", chat_id="override")
+    assert module.resolve_addressing(request, config) == (
+        "override",
+        "pod",
+        "agent",
+    )
+    assert module.build_chat_prompt(
+        [{"role": "user", "content": "before"}], "next"
+    ) == "Previous conversation:\n[user] before\n\nCurrent message:\nnext\n"
+
+
+@pytest.mark.asyncio
+async def test_chat_cycle_reads_prior_turns_oldest_first(register_module):
+    module = sys.modules["nat.plugins.h_orchestrator.chat_cycle"]
+
+    class Redis:
+        async def zrevrange(self, key, start, end):
+            return ["new", "old"]
+
+        async def mget(self, *keys):
+            return [
+                '{"role":"assistant","content":"new"}',
+                '{"role":"user","content":"old"}',
+            ]
+
+    assert await module.read_prior_turns(Redis(), "p", "a", "c") == [
+        {"role": "user", "content": "old"},
+        {"role": "assistant", "content": "new"},
+    ]
+
+
+def test_chat_cycle_requires_complete_addressing(register_module):
+    module = sys.modules["nat.plugins.h_orchestrator.chat_cycle"]
+    config = module.HChatCycleConfig(dispatcher="agent")
+    request = module.HChatCycleInput(message="hello")
+    with pytest.raises(ValueError, match="chat_id, pod, agent"):
+        module.resolve_addressing(request, config)
+
+
+@pytest.mark.asyncio
+async def test_chat_cycle_dispatches_writes_and_closes(register_module, monkeypatch):
+    module = sys.modules["nat.plugins.h_orchestrator.chat_cycle"]
+    written = []
+
+    class Redis:
+        closed = False
+
+        async def zrevrange(self, key, start, end):
+            return []
+
+        async def aclose(self):
+            self.closed = True
+
+    redis = Redis()
+
+    class Store:
+        def __init__(self, **kwargs):
+            assert kwargs["client"] is redis
+
+        async def write_turn(
+            self, chat_id, role, content, ttl_seconds, *, hot_keep_count
+        ):
+            written.append((chat_id, role, content, ttl_seconds, hot_keep_count))
+            return f"turn:{role}"
+
+    class Dispatcher:
+        async def ainvoke(self, prompt, to_type):
+            assert prompt == "hello"
+            assert to_type is str
+            return "answer"
+
+    class Builder:
+        async def get_function(self, name):
+            assert name == "agent"
+            return Dispatcher()
+
+    monkeypatch.setattr(
+        module.aioredis,
+        "Redis",
+        SimpleNamespace(from_url=lambda *args, **kwargs: redis),
+    )
+    monkeypatch.setattr(module, "BoundedBufferStore", Store)
+    config = module.HChatCycleConfig(
+        dispatcher="agent", chat_id="chat", pod="pod", agent="agent"
+    )
+    async with module.h_chat_cycle(config, Builder()) as function_info:
+        annotations = function_info.single_fn.__annotations__
+        assert annotations["request"] is module.HChatCycleInput
+        assert annotations["return"] is module.HChatCycleOutput
+        output = await function_info.single_fn(
+            module.HChatCycleInput(message="hello")
+        )
+        assert output.result == "answer"
+        assert output.turn_id == "turn:assistant"
+        assert [turn[1] for turn in written] == ["user", "assistant"]
+    assert redis.closed
+
+
+@pytest.mark.asyncio
+async def test_gated_mcp_preserves_schema_and_denies_without_raw_call(register_module):
+    module = sys.modules["nat.plugins.h_orchestrator.gated_mcp"]
+
+    class ToolInput(BaseModel):
+        router_name: str
+        command: str
+        timeout: int = 360
+
+    class RawFunction:
+        input_schema = ToolInput
+        description = "Execute a device command"
+
+        async def ainvoke(self, request, to_type):
+            raise AssertionError("denied calls must not reach the raw MCP tool")
+
+    class Group:
+        def get_config(self):
+            return SimpleNamespace(include=["get_router_list"])
+
+        async def get_all_functions(self):
+            return {"junos__execute_junos_command": RawFunction()}
+
+    class Gate:
+        async def ainvoke(self, subject):
+            assert json.loads(subject) == {
+                "action": "mcp_tool_call",
+                "tool": "execute_junos_command",
+                "arguments": {
+                    "router_name": "R1",
+                    "command": "clear bgp neighbor all",
+                    "timeout": 360,
+                },
+            }
+            return SimpleNamespace(verdict="DENY", layer="L2_asimov", reason="disruptive")
+
+    class Builder:
+        async def get_function_group(self, name):
+            assert name == "junos"
+            return Group()
+
+        async def get_function(self, name):
+            assert name == "gate"
+            return Gate()
+
+    config = module.GatedMcpToolConfig(
+        mcp_group="junos", gate_fn="gate", mcp_tool_name="execute_junos_command"
+    )
+    async with module.h_gated_mcp_tool(config, Builder()) as function_info:
+        assert function_info.input_schema is ToolInput
+        response = await function_info.single_fn(
+            ToolInput(router_name="R1", command="clear bgp neighbor all")
+        )
+        assert response.status == "denied"
+        assert response.gate_layer == "L2_asimov"
+
+
+@pytest.mark.asyncio
+async def test_gated_mcp_allow_invokes_hidden_raw_function(register_module):
+    module = sys.modules["nat.plugins.h_orchestrator.gated_mcp"]
+
+    class ToolInput(BaseModel):
+        router_name: str
+        config_text: str
+
+    calls = []
+
+    class RawFunction:
+        input_schema = ToolInput
+        description = "Commit configuration"
+
+        async def ainvoke(self, request, to_type):
+            calls.append((request, to_type))
+            return "commit complete"
+
+    class Group:
+        def get_config(self):
+            return SimpleNamespace(include=["get_junos_config"])
+
+        async def get_all_functions(self):
+            return {"junos__load_and_commit_config": RawFunction()}
+
+    class Gate:
+        async def ainvoke(self, subject):
+            return SimpleNamespace(verdict="ALLOW", layer="passthrough", reason=None)
+
+    class Builder:
+        async def get_function_group(self, name):
+            return Group()
+
+        async def get_function(self, name):
+            return Gate()
+
+    config = module.GatedMcpToolConfig(
+        mcp_group="junos", gate_fn="gate", mcp_tool_name="load_and_commit_config"
+    )
+    async with module.h_gated_mcp_tool(config, Builder()) as function_info:
+        request = ToolInput(router_name="R2", config_text="set system services ssh")
+        response = await function_info.single_fn(request)
+        assert response.status == "ok"
+        assert response.output == "commit complete"
+        assert calls == [(request, str)]
+
+
+@pytest.mark.asyncio
+async def test_gated_mcp_rejects_public_raw_tool(register_module):
+    module = sys.modules["nat.plugins.h_orchestrator.gated_mcp"]
+
+    class Group:
+        def get_config(self):
+            return SimpleNamespace(include=["execute_junos_command"])
+
+    class Builder:
+        async def get_function_group(self, name):
+            return Group()
+
+    config = module.GatedMcpToolConfig(
+        mcp_group="junos", gate_fn="gate", mcp_tool_name="execute_junos_command"
+    )
+    with pytest.raises(ValueError, match="publicly included"):
+        async with module.h_gated_mcp_tool(config, Builder()):
+            pass
+
+
+@pytest.mark.asyncio
+async def test_chat_cycle_keeps_hot_context_across_turns(register_module, monkeypatch):
+    module = sys.modules["nat.plugins.h_orchestrator.chat_cycle"]
+    payloads = {}
+    index = []
+
+    class Redis:
+        async def zrevrange(self, key, start, end):
+            return list(reversed(index))
+
+        async def mget(self, *keys):
+            return [payloads[key] for key in keys]
+
+        async def aclose(self):
+            pass
+
+    redis = Redis()
+
+    class Store:
+        def __init__(self, **kwargs):
+            pass
+
+        async def write_turn(
+            self, chat_id, role, content, ttl_seconds, *, hot_keep_count
+        ):
+            import json
+
+            key = f"turn:{len(index)}"
+            payloads[key] = json.dumps({"role": role, "content": content})
+            index.append(key)
+            return key
+
+    prompts = []
+
+    class Dispatcher:
+        async def ainvoke(self, prompt, to_type):
+            prompts.append(prompt)
+            return "first answer" if len(prompts) == 1 else "second answer"
+
+    class Builder:
+        async def get_function(self, name):
+            return Dispatcher()
+
+    monkeypatch.setattr(
+        module.aioredis,
+        "Redis",
+        SimpleNamespace(from_url=lambda *args, **kwargs: redis),
+    )
+    monkeypatch.setattr(module, "BoundedBufferStore", Store)
+    config = module.HChatCycleConfig(
+        dispatcher="agent", chat_id="chat", pod="pod", agent="agent"
+    )
+    async with module.h_chat_cycle(config, Builder()) as function_info:
+        await function_info.single_fn(
+            module.HChatCycleInput(message="first question")
+        )
+        await function_info.single_fn(
+            module.HChatCycleInput(message="second question")
+        )
+        assert prompts == [
+            "first question",
+            (
+                "Previous conversation:\n"
+                "[user] first question\n"
+                "[assistant] first answer\n\n"
+                "Current message:\nsecond question\n"
+            ),
+        ]
