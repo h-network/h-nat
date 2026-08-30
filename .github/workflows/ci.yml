@@ -46,6 +46,24 @@ jobs:
       matrix:
         module: ${{ fromJson(needs.discover.outputs.modules) }}
     name: test (${{ matrix.module }})
+    # Only h-memory's test suite currently needs a live Redis (its
+    # h_memory_write_turn/h_memory_delete_chat integration tests connect for
+    # real -- the config's redis_url field defaults to redis://localhost:6379
+    # regardless of env vars, hence port 6379 here). No module's tests
+    # currently exercise RediSearch/RedisJSON for real (h-recall's tests are
+    # fakeredis/mocked, never reach a real connection) -- using the Stack
+    # image anyway since it's a strict superset and this is the natural place
+    # to provision it once that changes. Harmless for the other modules.
+    services:
+      redis:
+        image: redis/redis-stack-server:7.4.0-v8
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

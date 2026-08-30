@@ -18,10 +18,14 @@ against its `examples/**/*.yaml` in its own isolated venv and its own native
 GitHub Actions job/check — one module's failure doesn't block the others. A
 lint job (`ruff`, config in `ruff.toml`) runs first; it's currently
 non-blocking pending per-module cleanup of pre-existing findings. `nat
-validate` is schema/config validation only, no live Redis/vLLM/Junos endpoint
-required.
+validate` is schema/config validation only, no live vLLM/Junos endpoint
+required. The test job runs a `redis/redis-stack-server` service container on
+`localhost:6379`: h-memory's integration tests connect to a real Redis (its
+config's `redis_url` field defaults to that address regardless of env vars),
+no other module's pytest suite currently touches Redis for real.
 
-Run the same checks locally:
+Run the same checks locally (a Redis reachable at `localhost:6379` is only
+needed for h-memory's suite):
 
 ```bash
 ./ci/scripts/discover_modules.py          # list modules
