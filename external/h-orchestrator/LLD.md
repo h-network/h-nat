@@ -61,7 +61,7 @@ external/h-orchestrator/
 ```
 
 The distribution is `h-orchestrator`, version `0.1.0`, supporting Python
-3.11-3.13. Runtime dependencies are AsyncSSH 2.x, `h-asimov`, `h-memory`,
+3.11-3.13. Runtime dependencies include `asyncssh>=2.14,<2.24`, `h-asimov`, `h-memory`,
 `h-openshell`, Redis 7.1,
 `nvidia-nat-core>=1.8,<2`, `nvidia-nat-mcp>=1.8,<2`, and Pydantic 2. The namespace package is
 `nat.plugins.h_orchestrator`. Plugin-authoring symbols are imported from the
@@ -387,3 +387,12 @@ exact `chat_id`, query, `top_k`, and mode arguments before the final answer.
 All three YAML files also pass `nat validate` in a clean environment containing
 the local h-nat packages, `nvidia-nat-langchain` 1.8, and the example
 dependencies; validation performs no endpoint calls.
+
+## AsyncSSH compatibility bound
+
+AsyncSSH 2.24.0 raised its published Cryptography floor from `>=39.0` to
+`>=48.0.1`. NVIDIA NAT core 1.8 requires Cryptography below 47, so allowing
+AsyncSSH 2.24 makes an environment containing h-orchestrator and
+`nvidia-nat-mcp` unsatisfiable or import-broken. The package therefore caps
+AsyncSSH below 2.24; 2.23.1 retains the required SSH APIs with a compatible
+`cryptography>=39.0` requirement.

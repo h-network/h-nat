@@ -22,6 +22,10 @@ dispatcher.
 The package supports NVIDIA NeMo Agent Toolkit 1.8 through the current 1.x
 series and Python 3.11-3.13.
 
+AsyncSSH is capped below 2.24 because 2.24 raises its Cryptography requirement
+above the range supported by NAT 1.8. The cap retains AsyncSSH 2.23.x SSH
+functionality while keeping the combined dependency set resolvable.
+
 ```bash
 pip install .
 pip install -e ".[test]"
