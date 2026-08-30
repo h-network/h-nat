@@ -1,0 +1,14 @@
+# Copy these values into your environment before starting the server.
+H_NAT_LLM_MODEL: your-openai-compatible-model
+H_NAT_LLM_BASE_URL: http://127.0.0.1:8000/v1
+OPENAI_API_KEY: EMPTY
+
+H_NAT_REDIS_URL: redis://127.0.0.1:6379
+H_NAT_CHATBOT_POD: chatbot
+H_NAT_CHATBOT_AGENT: assistant
+H_NAT_CHATBOT_CHAT_ID: chatbot-demo
+
+# One Redis record is stored for each user or assistant message.
+H_NAT_CHATBOT_HOT_KEEP_COUNT: 30
+H_NAT_CHATBOT_MIGRATION_THRESHOLD_SEC: 60
+H_NAT_CHATBOT_VECTORIZE_BATCH_SIZE: 64

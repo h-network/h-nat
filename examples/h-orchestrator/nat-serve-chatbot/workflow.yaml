@@ -1,0 +1,79 @@
+general:
+  front_end:
+    _type: fastapi
+    host: 127.0.0.1
+    port: 8080
+    workflow:
+      method: POST
+      path: /v1/workflow
+      websocket_path: /websocket
+      description: Chat with bounded hot memory and semantic long-term recall.
+    endpoints:
+      - function_name: semantic_sweep
+        method: POST
+        path: /maintenance/sweep
+        description: Move eligible hot turns into the long-term audit tier.
+      - function_name: semantic_vectorize
+        method: POST
+        path: /maintenance/vectorize
+        description: Embed pending long-term audit turns for semantic recall.
+
+llms:
+  chatbot_llm:
+    _type: openai
+    model_name: ${H_NAT_LLM_MODEL}
+    base_url: ${H_NAT_LLM_BASE_URL}
+    api_key: ${OPENAI_API_KEY}
+    temperature: 0.0
+    request_timeout: 120
+
+functions:
+  recall_search:
+    _type: h_semantic_search
+    redis_url: ${H_NAT_REDIS_URL}
+    pod: ${H_NAT_CHATBOT_POD}
+    agent: ${H_NAT_CHATBOT_AGENT}
+    rrf_k: 60
+    candidate_pool_multiplier: 2
+
+  semantic_sweep:
+    _type: h_semantic_sweep
+    redis_url: ${H_NAT_REDIS_URL}
+    pod: ${H_NAT_CHATBOT_POD}
+    agent: ${H_NAT_CHATBOT_AGENT}
+    migration_threshold_sec: ${H_NAT_CHATBOT_MIGRATION_THRESHOLD_SEC}
+    max_per_cycle: 0
+
+  semantic_vectorize:
+    _type: h_semantic_vectorize
+    redis_url: ${H_NAT_REDIS_URL}
+    pod: ${H_NAT_CHATBOT_POD}
+    agent: ${H_NAT_CHATBOT_AGENT}
+    batch_size: ${H_NAT_CHATBOT_VECTORIZE_BATCH_SIZE}
+    max_per_cycle: 0
+
+  chatbot_agent:
+    _type: tool_calling_agent
+    llm_name: chatbot_llm
+    tool_names: [recall_search]
+    handle_tool_errors: true
+    max_iterations: 6
+    system_prompt: |
+      You are a concise conversational assistant. Answer from the recent
+      conversation when it contains enough information. When the user asks
+      about an earlier personal fact that is no longer visible, call
+      recall_search with chat_id "${H_NAT_CHATBOT_CHAT_ID}", a concise query,
+      top_k 5, and mode "hybrid". Use retrieved turns to answer precisely.
+      Do not call recall_search for general knowledge, greetings, arithmetic,
+      or facts already present in recent context. Never invent remembered
+      facts.
+
+workflow:
+  _type: h_chat_cycle
+  dispatcher: chatbot_agent
+  chat_id: ${H_NAT_CHATBOT_CHAT_ID}
+  pod: ${H_NAT_CHATBOT_POD}
+  agent: ${H_NAT_CHATBOT_AGENT}
+  redis_url: ${H_NAT_REDIS_URL}
+  hot_keep_count: ${H_NAT_CHATBOT_HOT_KEEP_COUNT}
+  ttl_seconds: 86400
