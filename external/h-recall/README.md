@@ -67,6 +67,10 @@ functions:
 - **Redis Stack** (Redis $\ge$ 7.1 with `RediSearch` and `RedisJSON` modules loaded).
 - **fastembed** + **numpy** for embeddings (default model: `sentence-transformers/all-MiniLM-L6-v2`, 384d).
 
+## Examples
+
+- [Fill and Search Example](examples/fill-and-search/README.md) — Self-contained end-to-end demonstration planting turns with `h-memory`, sweeping with `h_semantic_sweep`, vectorizing with `h_semantic_vectorize`, and retrieving with `h_semantic_search`.
+
 ## Documentation
 
 - [HLD.md](HLD.md) — High-Level Design, system architecture, topologies, and RRF mathematics.
