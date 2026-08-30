@@ -43,11 +43,12 @@ jobs:
     # Only h-memory's test suite currently needs a live Redis (its
     # h_memory_write_turn/h_memory_delete_chat integration tests connect for
     # real -- the config's redis_url field defaults to redis://localhost:6379
-    # regardless of env vars, hence port 6379 here). No module's tests
-    # currently exercise RediSearch/RedisJSON for real (h-recall's tests are
-    # fakeredis/mocked, never reach a real connection) -- using the Stack
-    # image anyway since it's a strict superset and this is the natural place
-    # to provision it once that changes. Harmless for the other modules.
+    # when H_NAT_REDIS_URL/REDIS_URL aren't set, hence port 6379 here; neither
+    # is set anywhere in this job). No module's tests currently exercise
+    # RediSearch/RedisJSON for real (h-recall's tests are fakeredis/mocked,
+    # never reach a real connection) -- using the Stack image anyway since
+    # it's a strict superset and this is the natural place to provision it
+    # once that changes. Harmless for the other modules.
     services:
       redis:
         image: redis/redis-stack-server:7.4.0-v8
@@ -65,6 +66,13 @@ jobs:
           python-version: "3.11"
       - id: slug
         run: echo "slug=$(echo '${{ matrix.module }}' | tr '/' '-')" >> "$GITHUB_OUTPUT"
+      # The service health check gates when steps start on the container
+      # reporting healthy internally -- that's not quite the same guarantee
+      # as the host-side port mapping already accepting connections at that
+      # exact moment. Explicit belt-and-suspenders wait for the one module
+      # that actually needs a live Redis, to close that race.
+      - if: contains(matrix.module, 'h-memory')
+        run: python3 ci/scripts/wait_for_redis.py
       - run: python3 ci/scripts/run_tests.py --project "${{ matrix.module }}" --reports-dir .artifacts/junit
       - uses: actions/upload-artifact@v7
         if: always()
