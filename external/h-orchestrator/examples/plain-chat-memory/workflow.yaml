@@ -1,0 +1,24 @@
+llms:
+  chat_llm:
+    _type: openai
+    model_name: ${H_NAT_LLM_MODEL}
+    base_url: ${H_NAT_LLM_BASE_URL}
+    api_key: ${OPENAI_API_KEY}
+    temperature: 0.0
+
+functions:
+  plain_chat:
+    _type: chat_completion
+    llm_name: chat_llm
+    system_prompt: |
+      You are a concise conversational assistant. Use the supplied previous
+      conversation when the user asks about earlier facts. Do not invent facts.
+
+workflow:
+  _type: h_chat_cycle
+  dispatcher: plain_chat
+  pod: plain-chat-demo
+  agent: assistant
+  redis_url: ${H_NAT_REDIS_URL}
+  hot_keep_count: 30
+  ttl_seconds: 86400

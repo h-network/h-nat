@@ -41,6 +41,10 @@ external/h-orchestrator/
 ├── examples/gated-junos-mcp/
 │   ├── README.md
 │   └── workflow.yaml
+├── examples/plain-chat-memory/
+│   ├── README.md
+│   ├── run_demo.py
+│   └── workflow.yaml
 ├── src/nat/plugins/h_orchestrator/
 │   ├── __init__.py
 │   ├── chat_cycle.py
@@ -330,6 +334,15 @@ the authenticated deployed streamable-HTTP Junos MCP endpoint. A harmless
 `show version` call through the otherwise-hidden `execute_junos_command`
 member proves live group discovery, schema preservation, gate invocation, and
 nested MCP execution without changing device state.
+
+`tests/fixtures/plain_chat_memory_smoke.yaml` exercises the same
+`h_chat_cycle -> chat_completion` topology with NAT's deterministic test LLM.
+Ten separate `nat run` processes share one chat ID through real Redis; the
+smoke verifies that the hot index grows by exactly two records per process and
+that the final stored payloads contain ten user and ten assistant roles. The
+production example driver repeats those telemetry checks with an
+OpenAI-compatible model and additionally asserts arithmetic, individual fact
+recall, and final-summary content.
 
 ## Disagreements and remaining baseline work
 

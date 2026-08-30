@@ -123,6 +123,11 @@ builds a history prompt, calls the configured NAT function using its
 `str -> str` contract, and writes user and assistant turns only after a
 successful dispatch.
 
+`examples/plain-chat-memory` shows the smallest production composition:
+`h_chat_cycle` around NAT's ordinary `chat_completion`, with no tools, MCP, or
+network-operations components. Its driver runs ten separate NAT processes and
+checks both conversational recall and the Redis record count after every turn.
+
 h-ramp-dependent functions are not included. h-ramp has no public contract in
 the five-module `h-nat` plan; support is deferred pending a module decision.
 
