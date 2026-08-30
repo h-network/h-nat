@@ -15,7 +15,8 @@ owns the mechanisms that are implemented now.
 
 The package implements generic unary and streaming execution, Claude unary and
 stream-json wrappers, two unary parsers, and a dispatcher-agnostic
-Redis-backed chat cycle, and a gated direct SSH executor.
+Redis-backed chat cycle, a gated direct SSH executor, and schema-preserving
+gated MCP member wrappers.
 
 The predecessor's `claude_via_hramp` and `h_claude_cycle` functions have not
 been ported. No h-ramp dependency is declared.
@@ -37,11 +38,15 @@ external/h-orchestrator/
 ├── examples/gated-ssh/
 │   ├── README.md
 │   └── workflow.yaml
+├── examples/gated-junos-mcp/
+│   ├── README.md
+│   └── workflow.yaml
 ├── src/nat/plugins/h_orchestrator/
 │   ├── __init__.py
 │   ├── chat_cycle.py
 │   ├── claude_stream.py
 │   ├── core.py
+│   ├── gated_mcp.py
 │   ├── register.py
 │   ├── ssh_exec.py
 │   └── parsers/
@@ -58,7 +63,7 @@ external/h-orchestrator/
 The distribution is `h-orchestrator`, version `0.1.0`, supporting Python
 3.11-3.13. Runtime dependencies are AsyncSSH 2.x, `h-asimov`, `h-memory`,
 `h-openshell`, Redis 7.1,
-`nvidia-nat-core>=1.8,<2`, and Pydantic 2. The namespace package is
+`nvidia-nat-core>=1.8,<2`, `nvidia-nat-mcp>=1.8,<2`, and Pydantic 2. The namespace package is
 `nat.plugins.h_orchestrator`. Plugin-authoring symbols are imported from the
 stable `nat.plugin_api` facade.
 
@@ -205,6 +210,27 @@ by default using `~/.ssh/known_hosts`; disabling it explicitly passes
 error. Output, stderr, and integer exit status are returned separately.
 Credentials never enter the request model, gate subject, response, or logs.
 
+### `h_gated_mcp_tool`
+
+`GatedMcpToolConfig` is strict and requires a source `FunctionGroupRef`, a gate
+`FunctionRef`, and a safe bare MCP member name. At build time it resolves the
+already-built group and requires a non-empty `include` allowlist which omits
+the wrapped member. This ensures the raw member is absent from both whole-group
+agent exposure and NAT's global individual-function registry.
+
+The builder retrieves the hidden raw member through the public
+`FunctionGroup.get_all_functions()` accessor and reuses its exact dynamically
+discovered Pydantic `input_schema` in the wrapper's `FunctionInfo`. Each call
+canonical-JSON serializes `action=mcp_tool_call`, the exact member name, and
+the validated request with nulls omitted. Only a typed `ALLOW` verdict invokes
+the raw function. Nested invocation retains the MCP member's converters and
+group middleware. DENY and gate-error verdicts return a typed refusal and do
+not call MCP.
+
+NVIDIA NAT MCP 1.8 reduces MCP results to strings. The wrapper retains that
+text inside a consistent typed `GatedMcpResponse`; it does not claim structured
+MCP output or attempt to infer errors encoded as text by the upstream client.
+
 ## Script construction
 
 `build_script` returns UTF-8 bytes beginning with `set -e`. The command and
@@ -284,6 +310,8 @@ client. It verifies:
 - concrete chat-cycle input/output annotations for NAT schema inspection.
 - gated SSH credential-schema exclusion, deny-without-connect, exact
   gate/execution inputs, and connection cleanup.
+- gated MCP live-schema identity, public-raw rejection, deny-without-call, and
+  allowed hidden-member invocation.
 
 `tests/fixtures/chat_cycle_smoke.yaml` is also exercised with a real NAT 1.8
 `nat run` and Redis instance. It builds `h_chat_cycle`, resolves its input
@@ -296,6 +324,12 @@ server with a real NAT 1.8 `nat run`. It resolves a configured noop
 `h_asimov_gate`, receives `ALLOW`, authenticates using deployment config,
 executes the exact request command, and returns the typed result. Host-key
 verification is disabled only in this isolated smoke fixture.
+
+`tests/fixtures/gated_mcp_smoke.yaml` is exercised with real NAT 1.8 against
+the authenticated deployed streamable-HTTP Junos MCP endpoint. A harmless
+`show version` call through the otherwise-hidden `execute_junos_command`
+member proves live group discovery, schema preservation, gate invocation, and
+nested MCP execution without changing device state.
 
 ## Disagreements and remaining baseline work
 

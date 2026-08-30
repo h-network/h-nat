@@ -11,6 +11,7 @@ as NeMo Agent Toolkit (NAT) functions:
 | `claude_stream` | Consume Claude stream-json incrementally and return its final result. |
 | `h_chat_cycle` | Read bounded Redis history, call a configured dispatcher, and persist the successful turn. |
 | `h_ssh_exec` | Execute a command over direct SSH only after a configured `h_asimov_gate` returns `ALLOW`. |
+| `h_gated_mcp_tool` | Preserve one hidden MCP member's schema and expose it only through a configured `h_asimov_gate`. |
 
 Conversation memory is not implicit in invoke/stream functions. Use
 `h_chat_cycle` when the workflow should explicitly compose `h-memory` around a
@@ -44,6 +45,19 @@ See `examples/gated-ssh` for a complete configuration. Host-key verification
 is enabled by default. Disabling it is an explicit deployment choice intended
 only for controlled test environments. Secrets are never included in the
 gate prompt, agent tool schema, response, or module log messages.
+
+## Gated MCP members
+
+`h_gated_mcp_tool` safely composes with a NAT `mcp_client` function group. The
+source group must use a non-empty `include` allowlist and must omit the wrapped
+member. The wrapper retrieves that hidden member internally, preserves its live
+Pydantic input schema, sends the exact tool name and validated arguments to
+`h_asimov_gate`, and invokes it only for `ALLOW`. It refuses to build if the raw
+member is public, closing the agent bypass path.
+
+See `examples/gated-junos-mcp` for a nine-tool deployment in which four
+read-only members remain directly available and five execution-capable members
+are available only through gated wrappers.
 
 ## Generic invocation
 

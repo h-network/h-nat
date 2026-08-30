@@ -21,6 +21,20 @@ class FunctionInfo:
             function=function, description=description, **kwargs
         )
 
+    @classmethod
+    def create(cls, *, single_fn, description="", **kwargs):
+        return SimpleNamespace(
+            function=single_fn, description=description, **kwargs
+        )
+
+
+class FunctionGroup:
+    SEPARATOR = "__"
+
+    @staticmethod
+    def decompose(name):
+        return tuple(name.split(FunctionGroup.SEPARATOR, maxsplit=1))
+
 
 def _module(name, **attributes):
     module = ModuleType(name)
@@ -50,6 +64,8 @@ def register_module():
         Builder=object,
         FunctionBaseConfig=FunctionBaseConfig,
         FunctionInfo=FunctionInfo,
+        FunctionGroup=FunctionGroup,
+        FunctionGroupRef=str,
         FunctionRef=str,
         register_function=register_function,
     )
@@ -424,6 +440,134 @@ async def test_ssh_exec_allow_uses_exact_request_and_config_credentials(
     assert calls["connect_kwargs"]["known_hosts"] == "/known_hosts"
     assert calls["closed"]
     await generator.aclose()
+
+
+@pytest.mark.asyncio
+async def test_gated_mcp_preserves_schema_and_denies_without_raw_call(register_module):
+    module = sys.modules["nat.plugins.h_orchestrator.gated_mcp"]
+
+    class ToolInput(BaseModel):
+        router_name: str
+        command: str
+        timeout: int = 360
+
+    class RawFunction:
+        input_schema = ToolInput
+        description = "Execute a device command"
+
+        async def ainvoke(self, request, to_type):
+            raise AssertionError("denied calls must not reach the raw MCP tool")
+
+    class Group:
+        def get_config(self):
+            return SimpleNamespace(include=["get_router_list"])
+
+        async def get_all_functions(self):
+            return {"junos__execute_junos_command": RawFunction()}
+
+    class Gate:
+        async def ainvoke(self, subject):
+            assert json.loads(subject) == {
+                "action": "mcp_tool_call",
+                "tool": "execute_junos_command",
+                "arguments": {
+                    "router_name": "R1",
+                    "command": "clear bgp neighbor all",
+                    "timeout": 360,
+                },
+            }
+            return SimpleNamespace(verdict="DENY", layer="L2_asimov", reason="disruptive")
+
+    class Builder:
+        async def get_function_group(self, name):
+            assert name == "junos"
+            return Group()
+
+        async def get_function(self, name):
+            assert name == "gate"
+            return Gate()
+
+    config = module.GatedMcpToolConfig(
+        mcp_group="junos", gate_fn="gate", mcp_tool_name="execute_junos_command"
+    )
+    generator = module.h_gated_mcp_tool(config, Builder())
+    function_info = await anext(generator)
+    assert function_info.input_schema is ToolInput
+    response = await function_info.function(
+        ToolInput(router_name="R1", command="clear bgp neighbor all")
+    )
+    assert response.status == "denied"
+    assert response.gate_layer == "L2_asimov"
+    await generator.aclose()
+
+
+@pytest.mark.asyncio
+async def test_gated_mcp_allow_invokes_hidden_raw_function(register_module):
+    module = sys.modules["nat.plugins.h_orchestrator.gated_mcp"]
+
+    class ToolInput(BaseModel):
+        router_name: str
+        config_text: str
+
+    calls = []
+
+    class RawFunction:
+        input_schema = ToolInput
+        description = "Commit configuration"
+
+        async def ainvoke(self, request, to_type):
+            calls.append((request, to_type))
+            return "commit complete"
+
+    class Group:
+        def get_config(self):
+            return SimpleNamespace(include=["get_junos_config"])
+
+        async def get_all_functions(self):
+            return {"junos__load_and_commit_config": RawFunction()}
+
+    class Gate:
+        async def ainvoke(self, subject):
+            return SimpleNamespace(verdict="ALLOW", layer="passthrough", reason=None)
+
+    class Builder:
+        async def get_function_group(self, name):
+            return Group()
+
+        async def get_function(self, name):
+            return Gate()
+
+    config = module.GatedMcpToolConfig(
+        mcp_group="junos", gate_fn="gate", mcp_tool_name="load_and_commit_config"
+    )
+    generator = module.h_gated_mcp_tool(config, Builder())
+    function_info = await anext(generator)
+    request = ToolInput(router_name="R2", config_text="set system services ssh")
+    response = await function_info.function(request)
+    assert response.status == "ok"
+    assert response.output == "commit complete"
+    assert calls == [(request, str)]
+    await generator.aclose()
+
+
+@pytest.mark.asyncio
+async def test_gated_mcp_rejects_public_raw_tool(register_module):
+    module = sys.modules["nat.plugins.h_orchestrator.gated_mcp"]
+
+    class Group:
+        def get_config(self):
+            return SimpleNamespace(include=["execute_junos_command"])
+
+    class Builder:
+        async def get_function_group(self, name):
+            return Group()
+
+    config = module.GatedMcpToolConfig(
+        mcp_group="junos", gate_fn="gate", mcp_tool_name="execute_junos_command"
+    )
+    generator = module.h_gated_mcp_tool(config, Builder())
+    with pytest.raises(ValueError, match="publicly included"):
+        await anext(generator)
 
 
 @pytest.mark.asyncio
