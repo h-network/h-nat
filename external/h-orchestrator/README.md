@@ -10,7 +10,6 @@ as NeMo Agent Toolkit (NAT) functions:
 | `claude_invoke` | Invoke the Claude CLI through the unary core with stateless JSON-mode defaults. |
 | `claude_stream` | Consume Claude stream-json incrementally and return its final result. |
 | `h_chat_cycle` | Read bounded Redis history, call a configured dispatcher, and persist the successful turn. |
-| `h_ssh_exec` | Execute a command over direct SSH only after a configured `h_asimov_gate` returns `ALLOW`. |
 | `h_gated_mcp_tool` | Preserve one hidden MCP member's schema and expose it only through a configured `h_asimov_gate`. |
 
 Conversation memory is not implicit in invoke/stream functions. Use
@@ -22,10 +21,6 @@ dispatcher.
 The package supports NVIDIA NeMo Agent Toolkit 1.8 through the current 1.x
 series and Python 3.11-3.13.
 
-AsyncSSH is capped below 2.24 because 2.24 raises its Cryptography requirement
-above the range supported by NAT 1.8. The cap retains AsyncSSH 2.23.x SSH
-functionality while keeping the combined dependency set resolvable.
-
 ```bash
 pip install .
 pip install -e ".[test]"
@@ -35,20 +30,6 @@ pytest
 `h-openshell` supplies gateway discovery and mTLS credentials. Configure its
 OpenShell home or the optional `gateway_home`, `endpoint`, and
 `target_override` workflow fields; credentials are not invocation inputs.
-
-## Gated direct SSH
-
-`h_ssh_exec` is vendor-neutral and does not use OpenShell. Its agent-visible
-request contains only `host` and `command`; SSH username, password or private
-key, host-key policy, port, and timeouts are deployment configuration. It
-passes a canonical target/port/command string to a required configured
-`h_asimov_gate` and connects only when the typed verdict is exactly `ALLOW`.
-All denial and gate-error verdicts fail closed.
-
-See `examples/gated-ssh` for a complete configuration. Host-key verification
-is enabled by default. Disabling it is an explicit deployment choice intended
-only for controlled test environments. Secrets are never included in the
-gate prompt, agent tool schema, response, or module log messages.
 
 ## Gated MCP members
 
@@ -62,6 +43,10 @@ member is public, closing the agent bypass path.
 See `examples/gated-junos-mcp` for a nine-tool deployment in which four
 read-only members remain directly available and five execution-capable members
 are available only through gated wrappers.
+
+The former direct-SSH `h_ssh_exec` function was removed. External tool access
+for OpenAI-style tool-calling agents is standardized on MCP; use
+`h_gated_mcp_tool` and `examples/gated-junos-mcp` for gated operations.
 
 ## Generic invocation
 
