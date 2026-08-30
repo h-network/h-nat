@@ -1,0 +1,7 @@
+workflow:
+  _type: h_semantic_sweep
+  redis_url: ${H_NAT_REDIS_URL}
+  pod: ${H_NAT_STRESS_POD}
+  agent: ${H_NAT_STRESS_AGENT}
+  migration_threshold_sec: ${H_NAT_STRESS_MIGRATION_THRESHOLD_SEC}
+  max_per_cycle: 0

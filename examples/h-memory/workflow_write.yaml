@@ -1,0 +1,7 @@
+workflow:
+  _type: h_memory_write_turn
+  redis_url: ${H_NAT_REDIS_URL}
+  pod: example-pod
+  agent: example-agent
+  ttl_seconds_max: 86400
+  hot_keep_count: 50

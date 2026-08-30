@@ -1,0 +1,8 @@
+# Copy this file to vars.yaml (gitignored) and fill in real values before
+# running run_bench.py. Same field names/shape as other modules' benchmark
+# vars files, so one vars.yaml can serve multiple modules in one lab session.
+
+llm:
+  model: your-model-name
+  base_url: http://your-openai-compatible-endpoint/v1
+  api_key: EMPTY   # or a real key if your endpoint requires one

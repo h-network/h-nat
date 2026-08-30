@@ -1,0 +1,22 @@
+llms:
+  bench_llm:
+    _type: openai
+    model_name: ${H_NAT_LLM_MODEL}
+    base_url: ${H_NAT_LLM_BASE_URL}
+    api_key: ${OPENAI_API_KEY}
+    temperature: 0.0
+
+functions:
+  bench_chat:
+    _type: chat_completion
+    llm_name: bench_llm
+    system_prompt: Reply with only the word ACK.
+
+workflow:
+  _type: h_chat_cycle
+  dispatcher: bench_chat
+  pod: ${H_NAT_BENCH_POD}
+  agent: ${H_NAT_BENCH_AGENT}
+  redis_url: ${H_NAT_REDIS_URL}
+  hot_keep_count: ${H_NAT_BENCH_CHAT_KEEP}
+  ttl_seconds: 3600

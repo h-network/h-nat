@@ -1,0 +1,6 @@
+# Protobuf sources are vendored and adjacent Python stubs are generated.
+# Lint the maintained client, NAT registrations, and tests instead.
+extend-exclude = ["src/nat/plugins/h_openshell/_proto"]
+
+[lint.isort]
+known-third-party = ["nat"]

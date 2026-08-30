@@ -1,0 +1,32 @@
+{
+  "llm": {
+    "model": "<openai-compatible-model>",
+    "base_url": "http://127.0.0.1:8000/v1",
+    "api_key": "<api-key>"
+  },
+  "redis": {
+    "url": "redis://127.0.0.1:6379/0"
+  },
+  "mcp": {
+    "url": "<healthy-streamable-http-mcp-url>",
+    "token": "<bearer-token>",
+    "slow_url": "<slow-streamable-http-mcp-url>",
+    "malformed_url": "<malformed-streamable-http-mcp-url>",
+    "benchmark_tool": "<harmless-benchmark-tool>",
+    "public_tool": "<different-read-only-tool>",
+    "prompt": "Call the harmless benchmark tool exactly once with its smallest valid input, then return its output.",
+    "expected_marker": "<text-present-only-in-the-tool-output>"
+  },
+  "tenant": {
+    "pod": "orchestrator-bench",
+    "agent": "assistant"
+  },
+  "scenarios": {
+    "chat_turns": 100,
+    "chat_payload_chars": 256,
+    "chat_keep_records": 240,
+    "mcp_samples": 20,
+    "fault_samples": 5,
+    "timeout_seconds": 30
+  }
+}

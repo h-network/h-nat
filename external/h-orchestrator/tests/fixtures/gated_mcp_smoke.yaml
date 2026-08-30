@@ -1,0 +1,24 @@
+function_groups:
+  junos_mcp:
+    _type: mcp_client
+    server:
+      transport: streamable-http
+      url: http://YOUR_MCP_HOST:30030/mcp/
+      custom_headers:
+        Authorization: Bearer ${JUNOS_MCP_TOKEN}
+    include:
+      - gather_device_facts
+      - get_junos_config
+      - get_router_list
+      - junos_config_diff
+
+functions:
+  gate:
+    _type: h_asimov_gate
+    mode: noop
+
+workflow:
+  _type: h_gated_mcp_tool
+  mcp_group: junos_mcp
+  gate_fn: gate
+  mcp_tool_name: execute_junos_command

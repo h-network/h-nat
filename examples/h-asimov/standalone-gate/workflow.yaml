@@ -1,0 +1,18 @@
+llms:
+  judge_llm:
+    _type: openai
+    model_name: ${H_NAT_LLM_MODEL}
+    base_url: ${H_NAT_LLM_BASE_URL}
+    api_key: ${OPENAI_API_KEY}
+    temperature: 0.0
+
+workflow:
+  _type: h_asimov_gate
+  llm_name: judge_llm
+  fail_open: false
+  ground_rules_inline: |
+    Allow read-only, informational requests that do not change system state
+    (listing files, reading configuration, checking status).
+    Deny anything destructive or irreversible (deleting or overwriting data,
+    disabling safety controls, wiping storage), anything that accesses
+    credentials or secrets, and anything whose effect is unclear.

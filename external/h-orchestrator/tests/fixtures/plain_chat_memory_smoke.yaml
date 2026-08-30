@@ -1,0 +1,19 @@
+llms:
+  test_llm:
+    _type: nat_test_llm
+    response_seq:
+      - Acknowledged.
+
+functions:
+  plain_chat:
+    _type: chat_completion
+    llm_name: test_llm
+
+workflow:
+  _type: h_chat_cycle
+  dispatcher: plain_chat
+  pod: plain-chat-smoke
+  agent: assistant
+  redis_url: redis://localhost:6379
+  hot_keep_count: 30
+  ttl_seconds: 300
