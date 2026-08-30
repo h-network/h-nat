@@ -134,3 +134,12 @@ The example fixes one chat/tenant identity across the hot store, audit store,
 and tool instructions. Its verifier seeds a random fact, migrates it out of hot
 memory, asserts that a self-contained question does not call recall, then
 asserts that an older-fact question calls recall and returns the random fact.
+
+## Plain-chat memory example
+
+`examples/plain-chat-memory` demonstrates the minimal stateful composition
+independently of tools and network operations. `h_chat_cycle` reads and writes
+bounded Redis history around NAT's standard `chat_completion` dispatcher. A
+ten-process driver plants four personal facts, checks an unrelated arithmetic
+question, recalls each fact, requests a summary, and verifies the hot-index
+record count and persisted roles directly in Redis.
