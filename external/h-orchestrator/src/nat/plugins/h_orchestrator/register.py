@@ -180,4 +180,4 @@ async def claude_invoke(config: ClaudeInvokeConfig, builder: Builder):
 
 # Import additional registration modules after the shared config and client
 # factory are defined. Their decorators execute when NAT loads this component.
-from . import chat_cycle, claude_stream, gated_mcp, ssh_exec  # noqa: E402, F401
+from . import chat_cycle, claude_stream, gated_mcp  # noqa: E402, F401

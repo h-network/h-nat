@@ -15,8 +15,7 @@ owns the mechanisms that are implemented now.
 
 The package implements generic unary and streaming execution, Claude unary and
 stream-json wrappers, two unary parsers, and a dispatcher-agnostic
-Redis-backed chat cycle, a gated direct SSH executor, and schema-preserving
-gated MCP member wrappers.
+Redis-backed chat cycle and schema-preserving gated MCP member wrappers.
 
 The predecessor's `claude_via_hramp` and `h_claude_cycle` functions have not
 been ported. No h-ramp dependency is declared.
@@ -35,9 +34,6 @@ external/h-orchestrator/
 │   ├── sweep.yaml
 │   ├── vectorize.yaml
 │   └── workflow.yaml
-├── examples/gated-ssh/
-│   ├── README.md
-│   └── workflow.yaml
 ├── examples/gated-junos-mcp/
 │   ├── README.md
 │   └── workflow.yaml
@@ -52,7 +48,6 @@ external/h-orchestrator/
 │   ├── core.py
 │   ├── gated_mcp.py
 │   ├── register.py
-│   ├── ssh_exec.py
 │   └── parsers/
 │       ├── __init__.py
 │       ├── raw.py
@@ -65,11 +60,10 @@ external/h-orchestrator/
 ```
 
 The distribution is `h-orchestrator`, version `0.1.0`, supporting Python
-3.11-3.13. Runtime dependencies include `asyncssh>=2.14,<2.24`, `h-asimov`, `h-memory`,
-`h-openshell`, Redis 7.1,
-`nvidia-nat-core>=1.8,<2`, `nvidia-nat-mcp>=1.8,<2`, and Pydantic 2. The namespace package is
-`nat.plugins.h_orchestrator`. Plugin-authoring symbols are imported from the
-stable `nat.plugin_api` facade.
+3.11-3.13. Runtime dependencies include `h-asimov`, `h-memory`, `h-openshell`,
+Redis 7.1, `nvidia-nat-core>=1.8,<2`, `nvidia-nat-mcp>=1.8,<2`, and Pydantic 2.
+The namespace package is `nat.plugins.h_orchestrator`. Plugin-authoring symbols
+are imported from the stable `nat.plugin_api` facade.
 
 NAT loads `nat.plugins.h_orchestrator.register` through the `h_orchestrator`
 entry point in the `nat.plugins` group. The distribution also publishes its
@@ -190,30 +184,6 @@ configured NAT dispatcher under one async lock. Each invocation:
 String converters accept either a JSON typed request or a bare message and
 reduce typed output to its result text. The Redis client closes at teardown.
 
-### `h_ssh_exec`
-
-`SshExecConfig` is strict and requires `gate_fn: FunctionRef`, `username`, and
-at least one deployment credential: a Pydantic `SecretStr` password or a
-private-key path. An optional key passphrase requires a key. Port, known-hosts
-path, host-key verification, connect timeout, and command timeout are also
-deployment fields. The agent-visible `SshExecRequest` contains only non-empty
-`host` and `command` strings.
-
-The builder resolves the configured gate once. Each invocation freezes the
-request host and command, constructs one canonical JSON gate subject containing
-`action`, `host`, `port`, and `command`, and calls the
-gate without string conversion. Execution proceeds only when the returned
-object's verdict is exactly `ALLOW`; DENY and gate-error decisions return a
-typed refusal containing layer and reason without opening a connection.
-
-On ALLOW, the function opens a direct AsyncSSH connection from the NAT process,
-executes the exact request command without shell reconstruction, and closes
-the connection through its async context manager. Host-key verification is on
-by default using `~/.ssh/known_hosts`; disabling it explicitly passes
-`known_hosts=None`. Expected SSH, network, and timeout errors return a typed
-error. Output, stderr, and integer exit status are returned separately.
-Credentials never enter the request model, gate subject, response, or logs.
-
 ### `h_gated_mcp_tool`
 
 `GatedMcpToolConfig` is strict and requires a source `FunctionGroupRef`, a gate
@@ -312,8 +282,6 @@ client. It verifies:
 - chat addressing, prompt shape, chronological reads, missing-axis errors, and
   hot context across consecutive invocations; and
 - concrete chat-cycle input/output annotations for NAT schema inspection.
-- gated SSH credential-schema exclusion, deny-without-connect, exact
-  gate/execution inputs, and connection cleanup.
 - gated MCP live-schema identity, public-raw rejection, deny-without-call, and
   allowed hidden-member invocation.
 
@@ -322,12 +290,6 @@ client. It verifies:
 schema, dispatches to `current_datetime`, persists the turn, and returns the
 workflow result. A full OpenShell stream event matrix still requires an
 environment with `nvidia-nat-core` and `h-openshell` installed.
-
-`tests/fixtures/ssh_exec_smoke.yaml` is exercised against a local AsyncSSH
-server with a real NAT 1.8 `nat run`. It resolves a configured noop
-`h_asimov_gate`, receives `ALLOW`, authenticates using deployment config,
-executes the exact request command, and returns the typed result. Host-key
-verification is disabled only in this isolated smoke fixture.
 
 `tests/fixtures/gated_mcp_smoke.yaml` is exercised with real NAT 1.8 against
 the authenticated deployed streamable-HTTP Junos MCP endpoint. A harmless
@@ -401,11 +363,10 @@ All three YAML files also pass `nat validate` in a clean environment containing
 the local h-nat packages, `nvidia-nat-langchain` 1.8, and the example
 dependencies; validation performs no endpoint calls.
 
-## AsyncSSH compatibility bound
+## Removed direct SSH surface
 
-AsyncSSH 2.24.0 raised its published Cryptography floor from `>=39.0` to
-`>=48.0.1`. NVIDIA NAT core 1.8 requires Cryptography below 47, so allowing
-AsyncSSH 2.24 makes an environment containing h-orchestrator and
-`nvidia-nat-mcp` unsatisfiable or import-broken. The package therefore caps
-AsyncSSH below 2.24; 2.23.1 retains the required SSH APIs with a compatible
-`cryptography>=39.0` requirement.
+`h_ssh_exec`, its AsyncSSH dependency, and its example were removed after the
+operator standardized external tool access for OpenAI-style agents on MCP.
+The supported replacement is `h_gated_mcp_tool`, demonstrated by
+`examples/gated-junos-mcp/`; direct SSH execution is no longer registered by
+this package.
