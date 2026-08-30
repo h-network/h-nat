@@ -9,6 +9,10 @@ general:
       websocket_path: /websocket
       description: Chat with bounded hot memory and semantic long-term recall.
     endpoints:
+      - function_name: delete_chat
+        method: POST
+        path: /maintenance/reset
+        description: Clear the configured conversation's hot-memory session.
       - function_name: semantic_sweep
         method: POST
         path: /maintenance/sweep
@@ -28,6 +32,12 @@ llms:
     request_timeout: 120
 
 functions:
+  delete_chat:
+    _type: h_memory_delete_chat
+    redis_url: ${H_NAT_REDIS_URL}
+    pod: ${H_NAT_CHATBOT_POD}
+    agent: ${H_NAT_CHATBOT_AGENT}
+
   recall_search:
     _type: h_semantic_search
     redis_url: ${H_NAT_REDIS_URL}
