@@ -1,0 +1,13 @@
+This project is licensed by H-Network under the terms in `LICENSE`.
+
+It depends on the following third-party components, which are licensed
+separately under their own terms and are NOT covered by this project's
+license:
+
+- nvidia-nat (https://github.com/NVIDIA/NeMo-Agent-Toolkit) — Apache License 2.0
+  Copyright (c) NVIDIA Corporation
+
+This project does not modify or redistribute the source of the above
+component(s) — it is used as an unmodified dependency. No rights are
+claimed over it, and its own license terms continue to apply to it in
+full.

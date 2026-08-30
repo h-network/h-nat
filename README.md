@@ -15,6 +15,7 @@ benchmarks, not marketing claims.
 [![Built for NVIDIA NeMo Agent Toolkit](https://img.shields.io/badge/built_for-NVIDIA_NeMo_Agent_Toolkit-76B900?style=flat-square)](https://github.com/NVIDIA/NeMo-Agent-Toolkit)
 ![Modules](https://img.shields.io/badge/modules-5_composable_plugins-6366F1?style=flat-square)
 ![Benchmarked](https://img.shields.io/badge/adversarial_benchmarks-real_infra-22c55e?style=flat-square)
+[![License](https://img.shields.io/badge/license-PolyForm_Noncommercial_1.0.0-64748b?style=flat-square)](LICENSE)
 
 [Modules](#modules) · [Proof](#proof-not-promises) · [Quick start](#quick-start) · [Examples](examples/)
 
@@ -24,18 +25,11 @@ benchmarks, not marketing claims.
 
 ## Proof, not promises
 
-Most agent frameworks ask you to trust the agent. Here's what happens when
-you don't — a real, unscripted run against live infrastructure:
-
-An LLM agent noticed a BGP route drop on a real Juniper router, diagnosed the
-fault, proposed a config fix, passed that fix through **h-asimov**'s
-pre-flight safety gate, and committed the change atomically — restoring the
-dropped route advertisement with zero human intervention. Full writeup in
-[`VERIFICATION.md`](VERIFICATION.md).
-
-That's one example. Every benchmarked core module ships with an adversarial benchmark designed to
-make it fail — not a demo designed to make it look good. Results, including
-the cases that *didn't* pass, live in [`benchmark/`](benchmark/):
+Most agent frameworks ask you to trust the agent. h-nat instead ships every
+core module with an adversarial benchmark designed to make it fail — not a
+demo designed to make it look good — run against real infrastructure, with
+results (including the cases that *didn't* pass) published in
+[`benchmark/`](benchmark/):
 
 - **h-asimov**: real jailbreak attempts, encoded/obfuscated payloads, and
   fake-authorization social engineering — plus the false positives it took to
@@ -46,6 +40,12 @@ the cases that *didn't* pass, live in [`benchmark/`](benchmark/):
 - **h-orchestrator**: gated vs. ungated MCP tool latency, malformed/slow
   endpoint handling, and a live proof that hidden tools stay hidden even when
   an agent tries to name them directly.
+
+One end-to-end example of what that adds up to in practice: an LLM agent
+diagnosed a live fault, proposed a fix, passed it through **h-asimov**'s
+pre-flight safety gate, and executed the fix atomically on real
+infrastructure — zero human intervention. Full writeup in
+[`VERIFICATION.md`](VERIFICATION.md).
 
 A safety or memory claim you can't independently verify isn't one you should
 trust. So verify it.
