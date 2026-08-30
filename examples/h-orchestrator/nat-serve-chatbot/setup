@@ -1,0 +1,260 @@
+#!/usr/bin/env bash
+# Interactive launcher for the NAT chatbot and its Telegram bridge.
+set -Eeuo pipefail
+
+example_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+workflow_file="$example_dir/workflow.yaml"
+vars_file="$example_dir/vars.yaml"
+nat_log="$example_dir/nat-serve.log"
+telegram_log="$example_dir/telegram-bot.log"
+nat_pid=""
+telegram_pid=""
+
+say() { printf '\n%s\n' "$*"; }
+fail() { printf '\nSetup failed: %s\n' "$*" >&2; exit 1; }
+
+cleanup() {
+    local status=$?
+    trap - EXIT INT TERM
+    if [[ -n "$telegram_pid" ]] && kill -0 "$telegram_pid" 2>/dev/null; then
+        kill "$telegram_pid" 2>/dev/null || true
+        wait "$telegram_pid" 2>/dev/null || true
+    fi
+    if [[ -n "$nat_pid" ]] && kill -0 "$nat_pid" 2>/dev/null; then
+        kill "$nat_pid" 2>/dev/null || true
+        wait "$nat_pid" 2>/dev/null || true
+    fi
+    if (( status != 0 )) && { [[ -e "$nat_log" ]] || [[ -e "$telegram_log" ]]; }; then
+        printf 'Logs: %s and %s\n' "$nat_log" "$telegram_log" >&2
+    fi
+    exit "$status"
+}
+
+on_signal() {
+    say "Stopping the Telegram bridge and NAT backend..."
+    exit 0
+}
+
+trap cleanup EXIT
+trap on_signal INT TERM
+
+prompt() {
+    local target=$1 label=$2 default=${3-} secret=${4-false} value
+    while true; do
+        if [[ "$secret" == true ]]; then
+            printf '%s: ' "$label"
+            IFS= read -r -s value || fail "input ended unexpectedly"
+            printf '\n'
+        elif [[ -n "$default" ]]; then
+            printf '%s [%s]: ' "$label" "$default"
+            IFS= read -r value || fail "input ended unexpectedly"
+            value=${value:-$default}
+        else
+            printf '%s: ' "$label"
+            IFS= read -r value || fail "input ended unexpectedly"
+        fi
+        if [[ -n "$value" && "$value" != *$'\n'* && "$value" != *$'\r'* ]]; then
+            printf -v "$target" '%s' "$value"
+            return
+        fi
+        printf 'A value is required. Please try again.\n' >&2
+    done
+}
+
+yaml_quote() {
+    local value=${1//\'/\'\'}
+    printf "'%s'" "$value"
+}
+
+wait_for_health() {
+    local url=$1 attempts=${2:-60}
+    python - "$url" "$attempts" <<'PY'
+import sys, time, urllib.error, urllib.request
+url, attempts = sys.argv[1], int(sys.argv[2])
+for _ in range(attempts):
+    try:
+        with urllib.request.urlopen(url, timeout=2) as response:
+            if 200 <= response.status < 300:
+                raise SystemExit(0)
+    except (OSError, urllib.error.URLError):
+        time.sleep(1)
+raise SystemExit(1)
+PY
+}
+
+check_telegram_token() {
+    local token=$1
+    TELEGRAM_SETUP_TOKEN="$token" python - <<'PY'
+import json, os, sys, urllib.error, urllib.request
+token = os.environ["TELEGRAM_SETUP_TOKEN"]
+request = urllib.request.Request(
+    f"https://api.telegram.org/bot{token}/getMe",
+    data=b"{}", headers={"content-type": "application/json"}, method="POST",
+)
+try:
+    with urllib.request.urlopen(request, timeout=15) as response:
+        result = json.load(response)
+except (OSError, urllib.error.URLError, json.JSONDecodeError) as exc:
+    print(f"Telegram getMe could not be reached: {exc}", file=sys.stderr)
+    raise SystemExit(1)
+if not result.get("ok"):
+    print(f"Telegram rejected this token: {result.get('description', 'unknown error')}", file=sys.stderr)
+    raise SystemExit(1)
+username = result.get("result", {}).get("username", "unknown")
+print(f"Telegram authenticated bot @{username}.")
+PY
+}
+
+list_llm_models() {
+    local base_url=$1 api_key=$2
+    LLM_SETUP_BASE_URL="$base_url" LLM_SETUP_API_KEY="$api_key" python - <<'PY'
+import json, os, sys, urllib.error, urllib.request
+base_url = os.environ["LLM_SETUP_BASE_URL"].rstrip("/")
+url = base_url + "/models" if base_url.endswith("/v1") else base_url + "/v1/models"
+request = urllib.request.Request(url, headers={"Authorization": f"Bearer {os.environ['LLM_SETUP_API_KEY']}"})
+try:
+    with urllib.request.urlopen(request, timeout=15) as response:
+        payload = json.load(response)
+except urllib.error.HTTPError as exc:
+    print(f"Model discovery returned HTTP {exc.code} from {url}.", file=sys.stderr)
+    raise SystemExit(1)
+except (OSError, urllib.error.URLError, json.JSONDecodeError) as exc:
+    print(f"Could not query {url}: {exc}", file=sys.stderr)
+    raise SystemExit(1)
+models = payload.get("data") if isinstance(payload, dict) else None
+ids = [item.get("id") for item in models or [] if isinstance(item, dict) and isinstance(item.get("id"), str)]
+ids = [model_id for model_id in ids if model_id and "\n" not in model_id and "\r" not in model_id]
+if not ids:
+    print(f"No model IDs were returned by {url}.", file=sys.stderr)
+    raise SystemExit(1)
+print("\n".join(ids))
+PY
+}
+
+command -v python >/dev/null 2>&1 || fail "Python 3 is required but was not found."
+command -v nat >/dev/null 2>&1 || fail "The 'nat' command is required. Install the h-nat environment first."
+[[ -f "$workflow_file" ]] || fail "workflow.yaml is missing beside this script."
+
+# Never silently inherit credentials from the surrounding container. The
+# values used below come only from this explicit interactive session.
+unset TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID
+
+say "NAT chatbot + Telegram setup"
+printf '%s\n' "This will create a private vars.yaml, verify your services, and run both processes."
+
+prompt setup_bot_token "Telegram bot token (input hidden)" "" true
+[[ "$setup_bot_token" =~ ^[0-9]+:[A-Za-z0-9_-]+$ ]] || fail "The Telegram token format is not valid."
+prompt setup_chat_id "Telegram chat ID (from your own chat with the bot)"
+[[ "$setup_chat_id" =~ ^-?[0-9]+$ ]] || fail "The Telegram chat ID must be an integer."
+prompt setup_vllm_url "vLLM server base URL" "http://127.0.0.1:8000"
+[[ "$setup_vllm_url" =~ ^https?://[^[:space:]]+$ ]] || fail "The vLLM URL must start with http:// or https://."
+prompt setup_api_key "LLM API key (input hidden; use EMPTY if none is required)" "" true
+
+if [[ "${setup_vllm_url%/}" == */v1 ]]; then
+    setup_models_url=${setup_vllm_url%/}/models
+else
+    setup_models_url=${setup_vllm_url%/}/v1/models
+fi
+say "Discovering models from $setup_models_url ..."
+model_output=$(list_llm_models "$setup_vllm_url" "$setup_api_key") || fail "Model discovery failed. Check the vLLM URL and API key."
+mapfile -t available_models <<< "$model_output"
+printf '%s\n' "Available models:"
+for index in "${!available_models[@]}"; do
+    printf '  %d) %s\n' "$((index + 1))" "${available_models[$index]}"
+done
+prompt setup_model_choice "Choose a model number" "1"
+[[ "$setup_model_choice" =~ ^[0-9]+$ ]] || fail "The model choice must be a number."
+(( setup_model_choice >= 1 && setup_model_choice <= ${#available_models[@]} )) || fail "That model number is not in the list."
+setup_llm_model=${available_models[$((setup_model_choice - 1))]}
+if [[ "${setup_vllm_url%/}" == */v1 ]]; then
+    setup_llm_url=${setup_vllm_url%/}
+else
+    setup_llm_url=${setup_vllm_url%/}/v1
+fi
+printf 'Selected model: %s\n' "$setup_llm_model"
+
+prompt setup_redis_url "Redis Stack URL" "redis://127.0.0.1:6379"
+[[ "$setup_redis_url" =~ ^rediss?://[^[:space:]]+$ ]] || fail "The Redis URL must start with redis:// or rediss://."
+prompt setup_port "Local NAT HTTP port" "8080"
+[[ "$setup_port" =~ ^[0-9]+$ ]] && (( setup_port >= 1 && setup_port <= 65535 )) || fail "Port must be between 1 and 65535."
+prompt setup_memory_chat_id "Backend memory chat ID" "telegram-$setup_chat_id"
+[[ "$setup_memory_chat_id" =~ ^[A-Za-z0-9_-]+$ ]] || fail "Memory chat ID may contain letters, digits, underscores, and hyphens."
+
+umask 077
+{
+    printf '# Generated by ./setup. Do not commit this file.\n'
+    printf 'H_NAT_LLM_MODEL: %s\n' "$(yaml_quote "$setup_llm_model")"
+    printf 'H_NAT_LLM_BASE_URL: %s\n' "$(yaml_quote "$setup_llm_url")"
+    printf 'OPENAI_API_KEY: %s\n' "$(yaml_quote "$setup_api_key")"
+    printf 'H_NAT_REDIS_URL: %s\n' "$(yaml_quote "$setup_redis_url")"
+    printf "H_NAT_CHATBOT_POD: 'chatbot'\n"
+    printf "H_NAT_CHATBOT_AGENT: 'assistant'\n"
+    printf 'H_NAT_CHATBOT_CHAT_ID: %s\n' "$(yaml_quote "$setup_memory_chat_id")"
+    printf 'H_NAT_CHATBOT_HOT_KEEP_COUNT: 30\n'
+    printf 'H_NAT_CHATBOT_MIGRATION_THRESHOLD_SEC: 60\n'
+    printf 'H_NAT_CHATBOT_VECTORIZE_BATCH_SIZE: 64\n'
+    printf 'TELEGRAM_BOT_TOKEN: %s\n' "$(yaml_quote "$setup_bot_token")"
+    printf 'TELEGRAM_CHAT_ID: %s\n' "$(yaml_quote "$setup_chat_id")"
+    printf 'NAT_CHATBOT_URL: %s\n' "$(yaml_quote "http://127.0.0.1:$setup_port")"
+} > "$vars_file"
+chmod 600 "$vars_file"
+say "Saved private configuration to $vars_file (mode 600)."
+
+export H_NAT_LLM_MODEL="$setup_llm_model"
+export H_NAT_LLM_BASE_URL="$setup_llm_url"
+export OPENAI_API_KEY="$setup_api_key"
+export H_NAT_REDIS_URL="$setup_redis_url"
+export H_NAT_CHATBOT_POD=chatbot
+export H_NAT_CHATBOT_AGENT=assistant
+export H_NAT_CHATBOT_CHAT_ID="$setup_memory_chat_id"
+export H_NAT_CHATBOT_HOT_KEEP_COUNT=30
+export H_NAT_CHATBOT_MIGRATION_THRESHOLD_SEC=60
+export H_NAT_CHATBOT_VECTORIZE_BATCH_SIZE=64
+export TELEGRAM_BOT_TOKEN="$setup_bot_token"
+export TELEGRAM_CHAT_ID="$setup_chat_id"
+
+say "Validating the NAT workflow..."
+nat validate --config_file "$workflow_file" >"$nat_log" 2>&1 || {
+    tail -n 20 "$nat_log" >&2
+    fail "Workflow validation failed."
+}
+
+say "Starting the chatbot backend on http://127.0.0.1:$setup_port ..."
+nat serve --config_file "$workflow_file" --port "$setup_port" >>"$nat_log" 2>&1 &
+nat_pid=$!
+backend_healthy=false
+for _ in {1..60}; do
+    if wait_for_health "http://127.0.0.1:$setup_port/health" 1; then
+        backend_healthy=true
+        break
+    fi
+    if ! kill -0 "$nat_pid" 2>/dev/null; then
+        break
+    fi
+done
+if [[ "$backend_healthy" != true ]]; then
+    tail -n 20 "$nat_log" >&2
+    fail "The NAT backend did not become healthy. Check the error above."
+fi
+kill -0 "$nat_pid" 2>/dev/null || fail "The NAT backend exited after its health check."
+printf '%s\n' "NAT backend is healthy."
+
+say "Checking your Telegram bot token..."
+check_telegram_token "$setup_bot_token" || fail "Telegram authentication failed. Check the bot token and network access."
+
+say "Starting the Telegram bridge..."
+python "$example_dir/telegram_bot.py" --nat-url "http://127.0.0.1:$setup_port" \
+    --backend-chat-id "$setup_memory_chat_id" >"$telegram_log" 2>&1 &
+telegram_pid=$!
+sleep 2
+if ! kill -0 "$telegram_pid" 2>/dev/null; then
+    tail -n 20 "$telegram_log" >&2
+    fail "The Telegram bridge exited during startup."
+fi
+
+say "Setup complete — your chatbot is running."
+printf '%s\n' "Send a message to your bot in Telegram to try it."
+printf '%s\n' "Press Ctrl-C to stop both processes."
+printf 'Logs: %s and %s\n\n' "$nat_log" "$telegram_log"
+
+wait "$telegram_pid"
