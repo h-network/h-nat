@@ -69,6 +69,27 @@ code to NAT's synchronous REST interface. It supports text chat, `/reset`,
 attachments up to 256 KiB. Photos and binary documents are rejected clearly
 because this workflow accepts text, not multimodal message parts.
 
+For the smoothest first run inside a container that already has the NAT
+environment installed, use the interactive setup script:
+
+```bash
+cd examples/h-orchestrator/nat-serve-chatbot
+./setup
+```
+
+It asks explicitly for your own Telegram token and chat ID (it never reuses
+credentials inherited from the environment), writes an ignored `vars.yaml`
+with mode `600`, discovers the real model list from the LLM server's
+OpenAI-compatible `/v1/models` endpoint, validates and starts NAT, checks
+`/health` and Telegram `getMe`, and starts the bridge. Press Ctrl-C to stop
+both processes. Runtime logs are written beside the script and ignored by Git.
+
+The full setup flow was verified on 2026-08-30 with a dedicated test bot: model
+discovery returned the served model, NAT passed `/health`, Telegram `getMe`
+authenticated the bot, and an operator confirmed a real
+Telegram-to-NAT-to-Telegram message round-trip. Ctrl-C then stopped both child
+processes.
+
 Set a dedicated bot token and the one Telegram chat allowed to use it, then
 start the backend and bridge:
 
