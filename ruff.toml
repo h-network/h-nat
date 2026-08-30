@@ -1,0 +1,10 @@
+# Deliberately minimal for now: E9 (syntax errors) + F (pyflakes real-bug
+# rules) is the only rule set that's clean across the repo today. ruff's wider
+# defaults (import sorting, pyupgrade, bare-except, ...) surface ~110 findings
+# spread across every module's existing code -- tracked as separate per-module
+# cleanup tickets, not fixed here. Broaden `select` once those land.
+target-version = "py311"
+line-length = 120
+
+[lint]
+select = ["E9", "F"]
