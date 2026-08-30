@@ -5,9 +5,8 @@ end. `h_chat_cycle` reads and writes a bounded h-memory conversation window,
 while a tool-calling agent can use h-recall for facts that have moved into the
 semantic long-term tier.
 
-Phase 1 intentionally has no messaging-platform bridge and no safety gate.
-Those concerns can wrap this proven backend in later phases without changing
-its memory addressing.
+The optional `telegram_bot.py` bridge provides a single-chat Telegram
+interface. This example still intentionally has no safety gate.
 
 ## Architecture
 
@@ -59,6 +58,70 @@ The configured server listens on `127.0.0.1:8080` and exposes:
 - `WS /websocket` for NAT WebSocket messages.
 - `POST /maintenance/sweep` and `POST /maintenance/vectorize` for long-term
   memory maintenance. Run sweep before bounded hot eviction, then vectorize.
+- `POST /maintenance/reset` with `{"chat_id":"chatbot-demo"}` to delete the
+  selected conversation's hot-memory session.
+
+## Telegram bridge
+
+The bridge adapts h-flock's proven stdlib Telegram Bot API polling and upload
+code to NAT's synchronous REST interface. It supports text chat, `/reset`,
+`/sweep`, `/vectorize`, optional edge-tts voice replies, and UTF-8 text/JSON/XML
+attachments up to 256 KiB. Photos and binary documents are rejected clearly
+because this workflow accepts text, not multimodal message parts.
+
+Set a dedicated bot token and the one Telegram chat allowed to use it, then
+start the backend and bridge:
+
+```bash
+export TELEGRAM_BOT_TOKEN=123456:replace-me
+export TELEGRAM_CHAT_ID=123456789
+python examples/h-orchestrator/nat-serve-chatbot/telegram_bot.py
+```
+
+Voice replies are optional and require `pip install edge-tts`:
+
+```bash
+python examples/h-orchestrator/nat-serve-chatbot/telegram_bot.py --voice
+```
+
+To test only the REST client against a running backend, without a Telegram
+token:
+
+```bash
+python examples/h-orchestrator/nat-serve-chatbot/telegram_bot.py \
+  --prompt "Remember that my launch code is cobalt-47."
+```
+
+The bridge deliberately requires `TELEGRAM_CHAT_ID` and ignores every other
+chat. The example backend has one configured memory identity, and its recall
+tool is pinned to `H_NAT_CHATBOT_CHAT_ID`; accepting multiple Telegram chats
+would mix their histories. Run a separate configured backend and bot process
+for each Telegram chat until the workflow provides end-to-end dynamic memory
+addressing.
+
+### Bridge verification
+
+On 2026-08-30 the client was exercised against a live `nat serve` instance
+and returned the requested exact model response:
+
+```console
+$ python telegram_bot.py --nat-url http://127.0.0.1:18081 \
+    --prompt 'Reply with exactly: NAT Telegram bridge live.'
+NAT Telegram bridge live.
+
+$ curl -sS http://127.0.0.1:18081/maintenance/reset \
+    -H 'content-type: application/json' \
+    -d '{"chat_id":"telegram-bridge-live"}'
+{"value":3}
+```
+
+The configured Telegram credentials also passed `getMe`, and `sendMessage`
+returned a real message ID in the allowlisted chat. A complete inbound
+Telegram-to-NAT-to-Telegram round-trip could not be run with that token:
+Telegram returned HTTP 409 because its existing bot process was already using
+the token's single `getUpdates` consumer. That process was left undisturbed.
+Run the bridge with a dedicated token, or stop the existing poller first, to
+exercise inbound polling.
 
 ## REST proof
 
