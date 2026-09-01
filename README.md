@@ -1,25 +1,26 @@
 <div align="center">
 
-<!-- TODO: hero banner asset -->
+<img src="assets/banner.png" alt="H-NAT // autonomy you can verify // h-network" width="644">
+
+<br/>
+
+[![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-lightgrey)](LICENSE)
+![Runtime: Python 3.11–3.13](https://img.shields.io/badge/runtime-Python%203.11%E2%80%933.13-lightgrey)
+[![Build status](https://github.com/h-network/h-nat/actions/workflows/ci.yml/badge.svg)](https://github.com/h-network/h-nat/actions/workflows/ci.yml)
+
+</div>
+
+<div align="center">
+[Modules](#modules) · [Proof](#proof-not-promises) · [Quick start](#quick-start) · [Examples](examples/)
+
+</div>
 
 # h-nat
-
-### Autonomy you can verify.
 
 Five composable [NeMo Agent Toolkit](https://github.com/NVIDIA/NeMo-Agent-Toolkit)
 plugins that give your agents memory, action, and a safety gate that fails
 closed by default — install what you need, prove the rest with real
 benchmarks, not marketing claims.
-
-[![CI](https://github.com/h-network/h-nat/actions/workflows/ci.yml/badge.svg)](https://github.com/h-network/h-nat/actions/workflows/ci.yml)
-[![Built for NVIDIA NeMo Agent Toolkit](https://img.shields.io/badge/built_for-NVIDIA_NeMo_Agent_Toolkit-76B900?style=flat-square)](https://github.com/NVIDIA/NeMo-Agent-Toolkit)
-![Modules](https://img.shields.io/badge/modules-5_composable_plugins-6366F1?style=flat-square)
-![Benchmarked](https://img.shields.io/badge/adversarial_benchmarks-real_infra-22c55e?style=flat-square)
-[![License](https://img.shields.io/badge/license-PolyForm_Noncommercial_1.0.0-64748b?style=flat-square)](LICENSE)
-
-[Modules](#modules) · [Proof](#proof-not-promises) · [Quick start](#quick-start) · [Examples](examples/)
-
-</div>
 
 ---
 
